@@ -10,9 +10,9 @@ HOVER keeps the day within reach without taking over the desktop. Reminders appe
 
 ## Download
 
-**[Download HOVER for Windows](https://github.com/Abdulla-QsQs/HOVER/releases/latest/download/HOVER-Setup-1.0.0.exe)**
+**[Download HOVER for Windows](https://github.com/Abdulla-QsQs/HOVER/releases/latest/download/HOVER-Setup-1.0.1.exe)**
 
-The direct link downloads `HOVER-Setup-1.0.0.exe`. The guided installer can create Desktop and Start menu shortcuts. Release notes and checksums are available on the [Releases page](https://github.com/Abdulla-QsQs/HOVER/releases/latest).
+The direct link downloads `HOVER-Setup-1.0.1.exe`. The guided installer can create Desktop and Start menu shortcuts. Release notes and checksums are available on the [Releases page](https://github.com/Abdulla-QsQs/HOVER/releases/latest).
 
 > HOVER 1.0.0 is not code-signed. Windows SmartScreen may show an **Unknown publisher** notice; choose **More info → Run anyway** only when you downloaded it from this repository.
 
@@ -50,7 +50,7 @@ For every control and behavior, see the [HOVER usage guide](docs/USAGE.md).
 
 ## Run from source
 
-Requires Node.js 22 or newer.
+Requires Node.js 22.12 or newer.
 
 ```powershell
 npm ci
@@ -65,7 +65,7 @@ npm run snapshots
 npm run dist:win
 ```
 
-The Windows installer is written to `dist/HOVER-Setup-1.0.0.exe`. Snapshot generation updates the images under `docs/screenshots/`.
+The Windows installer is written to `dist/HOVER-Setup-1.0.1.exe`. Snapshot generation updates the images under `docs/screenshots/`.
 
 ## Release workflow
 

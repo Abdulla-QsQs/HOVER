@@ -1,6 +1,12 @@
 # Changelog
 
-## 1.0.0 — Initial release
+## 1.0.1 - Security update
+
+- Upgraded Electron from 37.10.3 to 43.4.0 to resolve high-severity upstream advisories.
+- Updated the snapshot utility for clean shutdown under Electron 43.
+- Rebuilt and reverified the Windows installer.
+
+## 1.0.0 - Initial release
 
 - Glass calendar interface in a compact always-on-top window.
 - Calendar-style reminder blocks with one-time and daily scheduling.

@@ -35,7 +35,7 @@ app.whenReady().then(async () => {
   await capture('hover-calendar.png', 430, 620);
   await capture('hover-island.png', 360, 82, ['--snapshot-island']);
   captureWindows.forEach((window) => window.destroy());
-  app.quit();
+  app.exit(0);
 }).catch((error) => {
   console.error(error);
   app.exit(1);
