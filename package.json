@@ -1,0 +1,59 @@
+{
+  "name": "hover",
+  "version": "1.0.0",
+  "description": "A compact, always-on-top reminder board for Windows.",
+  "author": "HOVER",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Abdulla-QsQs/HOVER.git"
+  },
+  "homepage": "https://github.com/Abdulla-QsQs/HOVER#readme",
+  "bugs": "https://github.com/Abdulla-QsQs/HOVER/issues",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --inspect",
+    "check": "node --check main.js && node --check preload.js && node --check src/renderer.js",
+    "test": "npm run check",
+    "snapshots": "electron scripts/capture-snapshots.js",
+    "dist:win": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.hover.reminders",
+    "productName": "HOVER",
+    "artifactName": "HOVER-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/hover.ico",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/hover.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HOVER",
+      "uninstallDisplayName": "HOVER",
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.2.5",
+    "electron-builder": "^26.0.12"
+  }
+}

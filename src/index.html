@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HOVER</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="island-view drag-region" id="island-view" aria-label="Compact reminder view">
+        <button class="completion-ring no-drag" id="island-complete" aria-label="Mark reminder complete"></button>
+        <div class="island-copy">
+          <span class="island-title" id="island-title">No reminders</span>
+          <span class="island-time" id="island-time">Today is clear</span>
+        </div>
+        <button class="island-expand no-drag" id="island-expand" aria-label="Open full calendar"><span></span></button>
+      </section>
+
+      <header class="titlebar">
+        <div class="titlebar-drag drag-region" aria-hidden="true"></div>
+        <div class="window-actions no-drag">
+          <button class="icon-button" id="minimize" aria-label="Minimize"><span></span></button>
+          <button class="icon-button close" id="close" aria-label="Close"><span></span></button>
+        </div>
+      </header>
+
+      <section class="overview">
+        <div>
+          <p class="eyebrow" id="day-label">TODAY</p>
+          <h1 id="date-heading">Wednesday, August 12</h1>
+          <p class="summary" id="summary">Nothing planned yet.</p>
+        </div>
+        <button class="add-button" id="new-reminder" aria-label="Add reminder"><span></span><span></span></button>
+      </section>
+
+      <nav class="day-nav" aria-label="Calendar day controls">
+        <button class="nav-button" id="previous-day" aria-label="Previous day"><span></span></button>
+        <button class="today-button" id="go-today">Today</button>
+        <button class="nav-button next" id="next-day" aria-label="Next day"><span></span></button>
+        <div class="live-clock" id="live-clock"></div>
+      </nav>
+
+      <section class="calendar-card" aria-label="Day calendar">
+        <div class="calendar-scroll" id="calendar-scroll">
+          <div class="calendar-grid" id="calendar-grid"></div>
+          <div class="event-layer" id="event-layer"></div>
+        </div>
+      </section>
+
+      <section class="quick-actions">
+        <label class="topmost-toggle" title="Keep HOVER above your other windows">
+          <input type="checkbox" id="topmost" checked />
+          <span class="toggle-track"><span></span></span>
+          Stay on top
+        </label>
+        <button class="text-button shortcut-button" id="create-shortcut">Add to desktop</button>
+        <button class="text-button mode-button" id="enable-island">Island mode</button>
+        <button class="text-button" id="new-reminder-bottom" title="Keyboard shortcut: Ctrl+N">New reminder</button>
+      </section>
+    </main>
+
+    <aside class="editor" id="editor" aria-hidden="true">
+      <div class="editor-header">
+        <h2 id="editor-title">New reminder</h2>
+        <button class="icon-button dismiss" id="dismiss-editor" aria-label="Close editor"><span></span></button>
+      </div>
+      <form id="reminder-form">
+        <input id="reminder-id" type="hidden" />
+        <label>What do you need to do?
+          <input id="title" maxlength="80" required placeholder="e.g. Call Amina" autocomplete="off" />
+        </label>
+        <label>Notes <span class="optional">optional</span>
+          <textarea id="notes" maxlength="280" placeholder="Add a little context..."></textarea>
+        </label>
+        <div class="form-row">
+          <label>Date <input id="date" type="date" required /></label>
+          <label>Repeat
+            <select id="repeat"><option value="none">Once</option><option value="daily">Every day</option></select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Starts <input id="start-time" type="time" value="09:00" required /></label>
+          <label>Ends <input id="end-time" type="time" value="09:30" required /></label>
+        </div>
+        <fieldset class="alarm-fieldset">
+          <legend>Alarm</legend>
+          <label class="alarm-enabled"><input type="checkbox" id="alarm" checked /> Notify me</label>
+          <label>Alert <select id="alarm-minutes"><option value="0">At start time</option><option value="5">5 min before</option><option value="10">10 min before</option><option value="15">15 min before</option><option value="30">30 min before</option></select></label>
+        </fieldset>
+        <fieldset class="color-fieldset">
+          <legend>Color</legend>
+          <div class="color-options">
+            <label><input type="radio" name="color" value="violet" checked /><span class="swatch violet"></span></label>
+            <label><input type="radio" name="color" value="coral" /><span class="swatch coral"></span></label>
+            <label><input type="radio" name="color" value="mint" /><span class="swatch mint"></span></label>
+            <label><input type="radio" name="color" value="sky" /><span class="swatch sky"></span></label>
+            <label><input type="radio" name="color" value="sun" /><span class="swatch sun"></span></label>
+          </div>
+        </fieldset>
+        <p class="form-error" id="form-error" role="alert"></p>
+        <div class="form-actions">
+          <button type="button" class="delete-button" id="delete-reminder" hidden>Delete</button>
+          <button type="submit" class="save-button">Save reminder</button>
+        </div>
+      </form>
+    </aside>
+    <div class="alarm-toast" id="alarm-toast" role="status" aria-live="polite"></div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
