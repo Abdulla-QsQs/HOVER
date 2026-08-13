@@ -32,7 +32,7 @@ body {
   overflow-x: hidden;
   background: var(--ink);
   color: var(--paper);
-  font-family: "Segoe UI Variable Text", "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: Geist, "Segoe UI Variable Text", "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -425,7 +425,8 @@ a {
   width: min(360px, 100%);
   margin: 0;
   color: rgba(255, 255, 255, .82);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "EB Garamond", Georgia, "Times New Roman", serif;
+  font-weight: 500;
   font-size: clamp(1.4rem, 2.1vw, 2.1rem);
   line-height: 1.12;
   letter-spacing: -.025em;
@@ -578,8 +579,10 @@ a {
 
 .product-copy h2 em,
 .island-copy h2 em {
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 400;
+  font-family: "EB Garamond", Georgia, "Times New Roman", serif;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: -.045em;
 }
 
 .product-copy > p:last-child {
@@ -727,76 +730,305 @@ a {
 
 .island-copy h2 {
   font-size: clamp(3rem, 6.5vw, 7rem);
+  font-family: "EB Garamond", Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  letter-spacing: -.04em;
 }
 
 .island-demo {
   position: relative;
   z-index: 2;
   width: min(880px, 82vw);
-  height: 300px;
+  height: 330px;
   display: grid;
   place-items: center;
-  margin: 80px auto 0;
+  margin: 66px auto 0;
+  perspective: 1200px;
 }
 
-.island-demo::before {
-  content: "";
-  position: absolute;
-  inset: 28% 4%;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 50%;
-  transform: perspective(700px) rotateX(72deg);
-}
-
-.island-demo img {
-  position: relative;
-  z-index: 5;
-  width: min(540px, 70vw);
-  filter: drop-shadow(0 35px 50px rgba(0, 0, 0, .72)) drop-shadow(0 0 34px rgba(168, 255, 181, .09));
-  animation: island-hover 5s var(--ease-glass) infinite;
-}
-
-.island-echo {
+.island-orbit {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: min(540px, 70vw);
-  height: 106px;
-  border: 1px solid rgba(255, 255, 255, .11);
-  border-radius: 54px;
+  width: 94%;
+  height: 56%;
+  transform: translate(-50%, -50%) rotateX(72deg);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 50%;
+  animation: island-orbit-turn 18s linear infinite;
+}
+
+.island-orbit span {
+  position: absolute;
+  top: 50%;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 22px rgba(168, 255, 181, .7);
+}
+
+.island-float {
+  position: relative;
+  z-index: 5;
+  width: min(560px, 72vw);
+  animation: island-float-position 5.4s var(--ease-glass) infinite;
+}
+
+.island-float::before,
+.island-float::after {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  inset: 20% 4% 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .76);
+  filter: blur(30px);
+  transform: translateY(30px) scale(.92);
+  opacity: .82;
+}
+
+.island-float::after {
+  z-index: -3;
+  inset: -38% -8%;
+  background:
+    radial-gradient(circle at 26% 48%, rgba(231, 59, 180, .2), transparent 38%),
+    radial-gradient(circle at 76% 50%, rgba(168, 255, 181, .17), transparent 40%);
+  filter: blur(48px);
+  transform: none;
+  opacity: .9;
+}
+
+.island-object {
+  --island-rx: 0deg;
+  --island-ry: 0deg;
+  --shine-x: 30%;
+  position: relative;
+  height: 94px;
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) 54px;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  padding: 0 14px 0 18px;
+  transform: rotateX(var(--island-rx)) rotateY(var(--island-ry));
+  transform-style: preserve-3d;
+  border: 1px solid rgba(218, 242, 249, .32);
+  border-radius: 999px;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .035) 36%, rgba(126, 185, 194, .08) 68%, rgba(255, 255, 255, .11)),
+    rgba(31, 43, 49, .58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .38),
+    inset 0 -1px 0 rgba(6, 13, 17, .7),
+    inset 16px 0 28px rgba(210, 238, 245, .04),
+    0 26px 62px rgba(0, 0, 0, .62),
+    0 0 0 7px rgba(105, 162, 174, .035);
+  -webkit-backdrop-filter: blur(28px) saturate(155%);
+  backdrop-filter: blur(28px) saturate(155%);
+  transition: height .55s var(--ease-glass), border-radius .55s var(--ease-glass), transform .45s var(--ease-glass), border-color .35s ease, background .35s ease;
+  will-change: transform;
+}
+
+.island-object::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 1px;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--shine-x) -10%, rgba(255, 255, 255, .28), transparent 34%);
+  pointer-events: none;
+  transition: background-position .45s var(--ease-glass);
+}
+
+.island-refraction {
+  position: absolute;
+  z-index: 0;
+  top: -90%;
+  left: -14%;
+  width: 37%;
+  height: 280%;
+  transform: rotate(18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .18), rgba(255, 255, 255, .035), transparent);
+  filter: blur(5px);
+  pointer-events: none;
+  animation: island-refraction 7.2s ease-in-out infinite;
+}
+
+.island-edge-light {
+  position: absolute;
+  z-index: 0;
+  right: 10%;
+  bottom: -1px;
+  left: 18%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(179, 232, 242, .42), transparent);
+  pointer-events: none;
+}
+
+.island-check,
+.island-open {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: rgba(226, 244, 248, .7);
+  cursor: pointer;
+}
+
+.island-check {
+  width: 27px;
+  height: 27px;
+  justify-self: center;
+  border: 2px solid rgba(222, 241, 246, .6);
+  border-radius: 50%;
   background: rgba(255, 255, 255, .025);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2);
+  transition: transform .3s var(--ease-out), background .3s ease, border-color .3s ease;
 }
 
-.island-echo-a {
-  transform: translate(-50%, -50%) scale(1.08);
-  animation: echo-a 5s var(--ease-glass) infinite;
+.island-check:hover {
+  transform: scale(1.08);
+  border-color: rgba(255, 255, 255, .92);
+  background: rgba(255, 255, 255, .09);
 }
 
-.island-echo-b {
-  opacity: .4;
-  transform: translate(-50%, -50%) scale(1.18);
-  animation: echo-b 5s var(--ease-glass) infinite;
+.island-check i {
+  opacity: 0;
+  font-size: 15px;
+  transform: scale(.4);
+  transition: opacity .24s ease, transform .35s var(--ease-out);
+}
+
+.island-live-copy {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  color: #f6fbfc;
+  transition: transform .45s var(--ease-glass);
+}
+
+.island-live-copy strong {
+  overflow: hidden;
+  font-size: clamp(15px, 1.6vw, 18px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.island-live-copy small {
+  overflow: hidden;
+  color: rgba(196, 222, 229, .68);
+  font-size: clamp(11px, 1.1vw, 13px);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -.018em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.island-open {
+  width: 43px;
+  height: 43px;
+  justify-self: end;
+  border: 1px solid rgba(221, 242, 247, .22);
+  border-radius: 50%;
+  background: rgba(214, 237, 242, .065);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 8px 18px rgba(0, 0, 0, .16);
+  transition: transform .35s var(--ease-out), background .3s ease;
+}
+
+.island-open:hover {
+  transform: scale(1.06);
+  background: rgba(214, 237, 242, .12);
+}
+
+.island-open i {
+  font-size: 18px;
+  transition: transform .42s var(--ease-out);
+}
+
+.island-expanded-copy {
+  position: absolute;
+  z-index: 3;
+  bottom: 17px;
+  left: 80px;
+  color: rgba(211, 232, 237, .56);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .25s ease, transform .42s var(--ease-out);
+}
+
+.island-object.is-open {
+  height: 136px;
+  border-radius: 40px;
+}
+
+.island-object.is-open .island-live-copy {
+  transform: translateY(-13px);
+}
+
+.island-object.is-open .island-open i {
+  transform: rotate(180deg);
+}
+
+.island-object.is-open .island-expanded-copy {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.island-object.is-complete {
+  border-color: rgba(167, 240, 205, .48);
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, .16), rgba(102, 211, 165, .09) 48%, rgba(255, 255, 255, .08)),
+    rgba(28, 48, 47, .62);
+}
+
+.island-object.is-complete .island-check {
+  border-color: rgba(190, 250, 219, .82);
+  background: rgba(92, 203, 150, .42);
+}
+
+.island-object.is-complete .island-check i {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.island-object.is-complete .island-live-copy strong {
+  color: rgba(226, 247, 236, .86);
 }
 
 .island-status {
   position: absolute;
   z-index: 7;
-  right: 5%;
-  bottom: 12%;
-  color: rgba(255, 255, 255, .36);
+  right: clamp(0px, 5vw, 58px);
+  bottom: 12px;
+  color: rgba(255, 255, 255, .42);
   font-size: 10px;
-  letter-spacing: .14em;
+  font-weight: 500;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 
 .island-caption {
-  width: min(520px, 100%);
-  margin: 24px auto 0;
-  color: rgba(255, 255, 255, .58);
-  font-size: 16px;
-  line-height: 1.65;
+  width: min(590px, 100%);
+  margin: 16px auto 0;
+  color: rgba(255, 255, 255, .66);
+  font-size: clamp(16px, 1.45vw, 19px);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -.025em;
   text-align: center;
 }
 
@@ -945,9 +1177,9 @@ a {
 }
 
 .closing-copy h2 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "EB Garamond", Georgia, "Times New Roman", serif;
   font-size: clamp(3.4rem, 7vw, 7.3rem);
-  font-weight: 400;
+  font-weight: 500;
 }
 
 .closing-copy .primary-download {
@@ -1053,19 +1285,20 @@ footer p {
   50% { transform: translateZ(96px) rotate(1.5deg) translateY(-12px); }
 }
 
-@keyframes island-hover {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-9px) scale(1.018); }
+@keyframes island-float-position {
+  0%, 100% { top: 0; }
+  50% { top: -12px; }
 }
 
-@keyframes echo-a {
-  0%, 100% { transform: translate(-50%, -50%) scale(1.05); opacity: .4; }
-  50% { transform: translate(-50%, -50%) scale(1.12); opacity: .12; }
+@keyframes island-refraction {
+  0%, 22% { left: -18%; opacity: 0; }
+  34% { opacity: .82; }
+  58%, 100% { left: 112%; opacity: 0; }
 }
 
-@keyframes echo-b {
-  0%, 100% { transform: translate(-50%, -50%) scale(1.14); opacity: .18; }
-  50% { transform: translate(-50%, -50%) scale(1.24); opacity: .03; }
+@keyframes island-orbit-turn {
+  from { transform: translate(-50%, -50%) rotateX(72deg) rotateZ(0); }
+  to { transform: translate(-50%, -50%) rotateX(72deg) rotateZ(360deg); }
 }
 
 @keyframes closing-lens {
@@ -1229,22 +1462,56 @@ footer p {
 
   .island-demo {
     width: 100%;
-    height: 230px;
+    height: 250px;
     margin-top: 48px;
   }
 
-  .island-demo img,
-  .island-echo {
-    width: 94vw;
+  .island-float {
+    width: 100%;
   }
 
-  .island-echo {
-    height: 82px;
+  .island-object {
+    height: 84px;
+    grid-template-columns: 38px minmax(0, 1fr) 42px;
+    gap: 8px;
+    padding: 0 10px 0 13px;
+  }
+
+  .island-check {
+    width: 23px;
+    height: 23px;
+  }
+
+  .island-open {
+    width: 38px;
+    height: 38px;
+  }
+
+  .island-live-copy strong {
+    font-size: 14px;
+  }
+
+  .island-live-copy small {
+    font-size: 10px;
+  }
+
+  .island-expanded-copy {
+    left: 59px;
+    bottom: 14px;
+  }
+
+  .island-object.is-open {
+    height: 126px;
+    border-radius: 34px;
+  }
+
+  .island-orbit {
+    width: 110%;
   }
 
   .island-status {
     right: 0;
-    bottom: 4%;
+    bottom: 0;
   }
 
   .details-section {

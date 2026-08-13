@@ -14,6 +14,10 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="https://abdulla-qsqs.github.io/HOVER/">
   <link rel="icon" type="image/png" href="assets/hover.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="styles.css">
   <title>HOVER — Glass Reminder Calendar for Windows</title>
   <script type="application/ld+json">
@@ -110,17 +114,32 @@
       </div>
     </section>
 
-    <section class="island-section" aria-labelledby="island-title">
+    <section class="island-section" id="island" aria-labelledby="island-title">
       <div class="island-copy reveal">
         <div class="section-index" aria-hidden="true">02 / ISLAND MODE</div>
-        <h2 id="island-title">When the calendar leaves,<br><em>the next thing stays.</em></h2>
+        <h2 id="island-title">When the calendar leaves,<br> <em>the next thing stays.</em></h2>
       </div>
 
-      <div class="island-demo reveal" aria-label="HOVER compact island reminder preview">
-        <div class="island-echo island-echo-a" aria-hidden="true"></div>
-        <div class="island-echo island-echo-b" aria-hidden="true"></div>
-        <img src="assets/hover-island.png" alt="Compact HOVER island showing the next reminder and completion control" width="360" height="81">
-        <span class="island-status">Next · 8:15 AM</span>
+      <div class="island-demo reveal" data-island-demo aria-label="Interactive HOVER compact island reminder preview">
+        <div class="island-orbit" aria-hidden="true"><span></span></div>
+        <div class="island-float">
+          <div class="island-object" data-glass-island>
+            <span class="island-refraction" aria-hidden="true"></span>
+            <span class="island-edge-light" aria-hidden="true"></span>
+            <button class="island-check" type="button" data-island-check aria-label="Mark Morning focus complete" aria-pressed="false">
+              <i class="bi bi-check-lg" aria-hidden="true"></i>
+            </button>
+            <span class="island-live-copy">
+              <strong data-island-title>Morning focus</strong>
+              <small data-island-time>8:15 AM – 9:15 AM</small>
+            </span>
+            <button class="island-open" type="button" data-island-open aria-label="Preview expanded reminder" aria-expanded="false">
+              <i class="bi bi-chevron-down" aria-hidden="true"></i>
+            </button>
+            <span class="island-expanded-copy" aria-hidden="true">Open full calendar</span>
+          </div>
+        </div>
+        <span class="island-status" data-island-status>Next · 8:15 AM</span>
       </div>
 
       <p class="island-caption reveal">Collapse HOVER into a narrow floating strip. Complete the reminder from the circle, or expand when you need the full day.</p>

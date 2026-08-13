@@ -7,6 +7,13 @@ const iconStage = document.querySelector("[data-icon-stage]");
 const tiltSurface = document.querySelector("[data-tilt]");
 const downloadLinks = Array.from(document.querySelectorAll(".download-link"));
 const releaseMeta = document.querySelector("[data-release-meta]");
+const islandDemo = document.querySelector("[data-island-demo]");
+const glassIsland = document.querySelector("[data-glass-island]");
+const islandCheck = document.querySelector("[data-island-check]");
+const islandOpen = document.querySelector("[data-island-open]");
+const islandTitle = document.querySelector("[data-island-title]");
+const islandTime = document.querySelector("[data-island-time]");
+const islandStatus = document.querySelector("[data-island-status]");
 
 document.querySelector("[data-year]").textContent = String(new Date().getFullYear());
 
@@ -54,6 +61,40 @@ if (!reduceMotion && finePointer && tiltSurface) {
   tiltSurface.addEventListener("pointerleave", () => {
     tiltSurface.style.setProperty("--tilt-y", "0deg");
     tiltSurface.style.setProperty("--tilt-x", "0deg");
+  });
+}
+
+if (!reduceMotion && finePointer && islandDemo && glassIsland) {
+  islandDemo.addEventListener("pointermove", (event) => {
+    const bounds = islandDemo.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    glassIsland.style.setProperty("--island-ry", x * 10 + "deg");
+    glassIsland.style.setProperty("--island-rx", y * -7 + "deg");
+    glassIsland.style.setProperty("--shine-x", 50 + x * 34 + "%");
+  });
+
+  islandDemo.addEventListener("pointerleave", () => {
+    glassIsland.style.setProperty("--island-ry", "0deg");
+    glassIsland.style.setProperty("--island-rx", "0deg");
+    glassIsland.style.setProperty("--shine-x", "30%");
+  });
+}
+
+if (islandCheck && glassIsland) {
+  islandCheck.addEventListener("click", () => {
+    const isComplete = glassIsland.classList.toggle("is-complete");
+    islandCheck.setAttribute("aria-pressed", String(isComplete));
+    islandTitle.textContent = isComplete ? "Morning focus complete" : "Morning focus";
+    islandTime.textContent = isComplete ? "Done for today" : "8:15 AM – 9:15 AM";
+    islandStatus.textContent = isComplete ? "Completed" : "Next · 8:15 AM";
+  });
+}
+
+if (islandOpen && glassIsland) {
+  islandOpen.addEventListener("click", () => {
+    const isOpen = glassIsland.classList.toggle("is-open");
+    islandOpen.setAttribute("aria-expanded", String(isOpen));
   });
 }
 
