@@ -6,6 +6,8 @@
 
 <p align="center">A small, always-on-top reminder calendar for Windows.</p>
 
+<p align="center"><strong><a href="https://abdulla-qsqs.github.io/HOVER/">Visit the HOVER website</a></strong></p>
+
 HOVER keeps the day within reach without taking over the desktop. Reminders appear as draggable calendar blocks in a transparent glass window, can alert you at the right time, and collapse into a compact Dynamic Island-style view.
 
 ## Download
@@ -14,7 +16,7 @@ HOVER keeps the day within reach without taking over the desktop. Reminders appe
 
 The direct link downloads `HOVER-Setup-1.0.1.exe`. The guided installer can create Desktop and Start menu shortcuts. Release notes and checksums are available on the [Releases page](https://github.com/Abdulla-QsQs/HOVER/releases/latest).
 
-> HOVER 1.0.0 is not code-signed. Windows SmartScreen may show an **Unknown publisher** notice; choose **More info → Run anyway** only when you downloaded it from this repository.
+> HOVER 1.0.1 is not code-signed. Windows SmartScreen may show an **Unknown publisher** notice; choose **More info → Run anyway** only when you downloaded it from this repository.
 
 ## Preview
 
