@@ -52,11 +52,12 @@
         <label class="topmost-toggle" title="Keep HOVER above your other windows">
           <input type="checkbox" id="topmost" checked />
           <span class="toggle-track"><span></span></span>
-          Stay on top
+          On top
         </label>
-        <button class="text-button shortcut-button" id="create-shortcut">Add to desktop</button>
-        <button class="text-button mode-button" id="enable-island">Island mode</button>
-        <button class="text-button" id="new-reminder-bottom" title="Keyboard shortcut: Ctrl+N">New reminder</button>
+        <button class="text-button shortcut-button" id="create-shortcut" title="Create a Desktop shortcut">Shortcut</button>
+        <button class="text-button pair-button" id="pair-phone">Pair</button>
+        <button class="text-button mode-button" id="enable-island">Island</button>
+        <button class="text-button" id="new-reminder-bottom" title="New reminder · Ctrl+N">New</button>
       </section>
     </main>
 
@@ -104,6 +105,41 @@
           <button type="submit" class="save-button">Save reminder</button>
         </div>
       </form>
+    </aside>
+    <aside class="pairing-panel" id="pairing-panel" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="pairing-title">
+      <div class="pairing-surface">
+        <button class="icon-button pairing-close" id="pairing-close" aria-label="Close pairing"><span></span></button>
+
+        <section class="pairing-step pairing-intro" id="pairing-intro">
+          <img src="../assets/hover.png" alt="" class="pairing-icon" draggable="false" />
+          <p class="eyebrow">HOVER MOBILE</p>
+          <h2 id="pairing-title">Pair a phone</h2>
+          <p>Carry the same planner, completion history and alarms with you.</p>
+          <div class="device-options" aria-label="Choose a phone">
+            <button type="button" data-pair-platform="ios"><strong>iPhone</strong><small>iOS 17 or newer</small></button>
+            <button type="button" data-pair-platform="android"><strong>Android</strong><small>Android 10 or newer</small></button>
+          </div>
+          <button class="pairing-skip" id="pairing-skip" type="button">Use HOVER without a phone</button>
+        </section>
+
+        <section class="pairing-step pairing-code-step" id="pairing-code-step" hidden>
+          <p class="eyebrow">SECURE PAIRING</p>
+          <h2>Scan with your phone</h2>
+          <p>Open the Camera app or HOVER scanner. This code expires in ten minutes.</p>
+          <div class="qr-frame"><img id="pairing-qr" alt="HOVER pairing QR code" /></div>
+          <div class="manual-pair-code"><span>PAIRING CODE</span><strong id="pairing-code">------</strong></div>
+          <p class="pairing-status" id="pairing-status" role="status" aria-live="polite">Waiting for your phone…</p>
+          <button class="pairing-skip" id="pairing-cancel" type="button">Cancel pairing</button>
+        </section>
+
+        <section class="pairing-step pairing-success" id="pairing-success" hidden>
+          <img src="../assets/hover.png" alt="" class="pairing-icon" draggable="false" />
+          <p class="eyebrow">CONNECTED</p>
+          <h2>Your phone is paired.</h2>
+          <p id="pairing-success-copy">HOVER is syncing your planner now.</p>
+          <button class="save-button" id="pairing-done" type="button">Done</button>
+        </section>
+      </div>
     </aside>
     <div class="alarm-toast" id="alarm-toast" role="status" aria-live="polite"></div>
     <script src="renderer.js"></script>

@@ -1,6 +1,6 @@
 {
   "name": "hover",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "A compact, always-on-top reminder board for Windows.",
   "author": "HOVER",
   "license": "MIT",
@@ -34,6 +34,7 @@
       "preload.js",
       "src/**/*",
       "assets/hover.ico",
+      "assets/hover.png",
       "package.json"
     ],
     "win": {
@@ -60,5 +61,8 @@
   "devDependencies": {
     "electron": "^43.4.0",
     "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
   }
 }

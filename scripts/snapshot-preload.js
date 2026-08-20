@@ -7,9 +7,20 @@ function localDateKey(date = new Date()) {
 
 const today = localDateKey();
 const islandMode = process.argv.includes('--snapshot-island');
+const pairingMode = process.argv.includes('--snapshot-pairing') || process.argv.includes('--snapshot-pairing-qr');
 
 const state = {
   settings: { alwaysOnTop: true, islandMode },
+  cloud: {
+    paired: !pairingMode,
+    username: pairingMode ? '' : 'hover-preview',
+    desktopName: 'HOVER-PREVIEW',
+    lastSync: new Date().toISOString(),
+    status: pairingMode ? 'offline' : 'online',
+    forcePairingPrompt: pairingMode,
+    forcePairingQr: process.argv.includes('--snapshot-pairing-qr'),
+    snapshotQrUrl: '../docs/screenshots/hover-qr-fixture.png'
+  },
   reminders: [
     {
       id: 'snapshot-focus',
@@ -65,6 +76,11 @@ contextBridge.exposeInMainWorld('reminders', {
   setTopmost: async () => true,
   setIslandMode: async () => true,
   createDesktopShortcut: async () => ({ ok: true, message: 'Shortcut ready.' }),
+  startPairing: async () => ({ code: 'HVR7K2', qrDataUrl: '', expiresAt: new Date(Date.now() + 600_000).toISOString() }),
+  pairingStatus: async () => ({ status: 'pending' }),
+  cancelPairing: async () => ({ ok: true }),
+  unpair: async () => ({ ok: true }),
+  syncNow: async () => ({ ok: true, message: 'HOVER is synced.' }),
   minimize: () => undefined,
   close: () => undefined,
   onChange: () => undefined,

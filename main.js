@@ -3,20 +3,35 @@ const fs = require('node:fs/promises');
 const { existsSync } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const os = require('node:os');
+const QRCode = require('qrcode');
 
 let mainWindow;
 let alarmTimer;
 let boundsAnimation;
 let boundsAnimationResolve;
 let regularBounds;
+let cloudSyncTimer;
+let cloudSyncPromise;
 
 const FULL_WINDOW = { width: 430, height: 620 };
 const ISLAND_WINDOW = { width: 360, height: 82 };
 const WINDOWS_APP_ID = 'com.hover.reminders';
+const CLOUD_BASE_URL = process.env.HOVER_CLOUD_URL || 'https://hover-mobile-companion.abdullahazam1077.chatgpt.site';
 
 const DEFAULT_STATE = {
   reminders: [],
-  settings: { alwaysOnTop: true, islandMode: false }
+  settings: { alwaysOnTop: true, islandMode: false },
+  cloud: {
+    paired: false,
+    token: '',
+    username: '',
+    desktopName: os.hostname(),
+    lastSync: null,
+    status: 'offline',
+    pendingPair: null,
+    deletedIds: []
+  }
 };
 
 function storagePath() {
@@ -34,7 +49,13 @@ async function loadState() {
     const parsed = JSON.parse(raw);
     return {
       reminders: Array.isArray(parsed.reminders) ? parsed.reminders : [],
-      settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) }
+      settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
+      cloud: {
+        ...DEFAULT_STATE.cloud,
+        ...(parsed.cloud || {}),
+        desktopName: parsed.cloud?.desktopName || os.hostname(),
+        deletedIds: Array.isArray(parsed.cloud?.deletedIds) ? parsed.cloud.deletedIds : []
+      }
     };
   } catch {
     return structuredClone(DEFAULT_STATE);
@@ -80,7 +101,10 @@ function normaliseReminder(input, current = {}) {
     alarm: input.alarm !== false,
     alarmMinutes: [0, 5, 10, 15, 30].includes(Number(input.alarmMinutes)) ? Number(input.alarmMinutes) : 0,
     completedDates: Array.isArray(current.completedDates) ? current.completedDates.slice(-365) : [],
-    alertedKeys: Array.isArray(current.alertedKeys) ? current.alertedKeys.slice(-14) : []
+    alertedKeys: Array.isArray(current.alertedKeys) ? current.alertedKeys.slice(-14) : [],
+    updatedAt: typeof input.updatedAt === 'string' && !Number.isNaN(Date.parse(input.updatedAt))
+      ? input.updatedAt
+      : new Date().toISOString()
   };
 
   if (!next.title) throw new Error('A reminder needs a title.');
@@ -89,7 +113,22 @@ function normaliseReminder(input, current = {}) {
 }
 
 async function broadcastState() {
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('reminders:changed', state);
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('reminders:changed', publicState());
+}
+
+function publicState() {
+  return {
+    reminders: state.reminders,
+    settings: state.settings,
+    cloud: {
+      paired: state.cloud.paired,
+      username: state.cloud.username,
+      desktopName: state.cloud.desktopName,
+      lastSync: state.cloud.lastSync,
+      status: state.cloud.status,
+      pairCode: state.cloud.pendingPair?.code || ''
+    }
+  };
 }
 
 function scheduledMoment(reminder, now) {
@@ -132,6 +171,155 @@ async function checkAlarms() {
   }
 }
 
+async function cloudRequest(pathname, { method = 'GET', body, token = state.cloud.token } = {}) {
+  const response = await fetch(`${CLOUD_BASE_URL}${pathname}`, {
+    method,
+    headers: {
+      ...(body ? { 'content-type': 'application/json' } : {}),
+      ...(token ? { authorization: `Bearer ${token}` } : {})
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(8_000)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `HOVER cloud returned ${response.status}.`);
+  return payload;
+}
+
+function cloudReminder(reminder) {
+  return {
+    id: reminder.id,
+    title: reminder.title,
+    notes: reminder.notes || '',
+    dateKey: reminder.date,
+    startTime: reminder.startTime,
+    endTime: reminder.endTime,
+    color: reminder.color,
+    repeat: reminder.repeat,
+    alarm: reminder.alarm,
+    alarmMinutes: reminder.alarmMinutes,
+    updatedAt: reminder.updatedAt || new Date().toISOString()
+  };
+}
+
+function localReminder(reminder) {
+  return normaliseReminder({
+    ...reminder,
+    date: reminder.dateKey,
+    updatedAt: reminder.updatedAt
+  }, {
+    id: reminder.id,
+    completedDates: [],
+    alertedKeys: []
+  });
+}
+
+function completionId(reminderId, date) {
+  return `${reminderId}:${date}`;
+}
+
+async function uploadReminder(reminder) {
+  if (!state.cloud.paired || !state.cloud.token) return;
+  await cloudRequest(`/api/reminders/${encodeURIComponent(reminder.id)}`, {
+    method: 'PUT',
+    body: cloudReminder(reminder)
+  });
+}
+
+async function uploadCompletion(reminder, date, completed) {
+  if (!state.cloud.paired || !state.cloud.token) return;
+  const id = completionId(reminder.id, date);
+  if (!completed) {
+    await cloudRequest(`/api/completions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return;
+  }
+  await cloudRequest('/api/completions', {
+    method: 'POST',
+    body: {
+      id,
+      reminderId: reminder.id,
+      title: reminder.title,
+      startTime: reminder.startTime,
+      dateKey: date,
+      color: reminder.color,
+      completedAt: new Date().toISOString()
+    }
+  });
+}
+
+async function runCloudOperation(operation) {
+  if (!state.cloud.paired || !state.cloud.token) return;
+  try {
+    await operation();
+    state.cloud.status = 'online';
+    state.cloud.lastSync = new Date().toISOString();
+  } catch {
+    state.cloud.status = 'offline';
+  }
+  await saveState(state);
+  await broadcastState();
+}
+
+async function syncCloud() {
+  if (!state.cloud.paired || !state.cloud.token) return { ok: false, message: 'Pair a phone before syncing.' };
+  if (cloudSyncPromise) return cloudSyncPromise;
+
+  cloudSyncPromise = (async () => {
+    state.cloud.status = 'syncing';
+    await broadcastState();
+    try {
+      for (const id of state.cloud.deletedIds) {
+        await cloudRequest(`/api/reminders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      }
+      state.cloud.deletedIds = [];
+
+      const payload = await cloudRequest('/api/sync');
+      const deletedIds = new Set(Array.isArray(payload.deletedReminderIds) ? payload.deletedReminderIds : []);
+      const localById = new Map(state.reminders.filter((item) => !deletedIds.has(item.id)).map((item) => [item.id, item]));
+      const remoteReminders = Array.isArray(payload.reminders) ? payload.reminders : [];
+
+      for (const remote of remoteReminders) {
+        const local = localById.get(remote.id);
+        if (!local || String(remote.updatedAt || '') > String(local.updatedAt || '')) {
+          const replacement = localReminder(remote);
+          replacement.completedDates = local?.completedDates || [];
+          replacement.alertedKeys = local?.alertedKeys || [];
+          localById.set(remote.id, replacement);
+        }
+      }
+
+      state.reminders = [...localById.values()];
+      for (const reminder of state.reminders) await uploadReminder(reminder);
+
+      const history = Array.isArray(payload.history) ? payload.history : [];
+      for (const completion of history) {
+        const reminder = state.reminders.find((item) => item.id === completion.reminderId);
+        if (!reminder || !validDate(completion.dateKey)) continue;
+        reminder.completedDates = [...new Set([...(reminder.completedDates || []), completion.dateKey])].sort().slice(-365);
+      }
+      for (const reminder of state.reminders) {
+        for (const date of reminder.completedDates || []) await uploadCompletion(reminder, date, true);
+      }
+
+      state.cloud.username = payload.profile?.username || state.cloud.username;
+      state.cloud.lastSync = new Date().toISOString();
+      state.cloud.status = 'online';
+      await saveState(state);
+      await broadcastState();
+      return { ok: true, message: 'HOVER is synced.' };
+    } catch (error) {
+      state.cloud.status = 'offline';
+      await saveState(state);
+      await broadcastState();
+      return { ok: false, message: error.message || 'HOVER could not reach the cloud.' };
+    } finally {
+      cloudSyncPromise = null;
+    }
+  })();
+
+  return cloudSyncPromise;
+}
+
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay();
   const initialSize = state.settings.islandMode ? ISLAND_WINDOW : FULL_WINDOW;
@@ -168,7 +356,9 @@ app.whenReady().then(async () => {
   state = await loadState();
   createWindow();
   alarmTimer = setInterval(checkAlarms, 20_000);
+  cloudSyncTimer = setInterval(() => void syncCloud(), 60_000);
   checkAlarms();
+  if (state.cloud.paired) void syncCloud();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -178,15 +368,87 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
-app.on('before-quit', () => clearInterval(alarmTimer));
+app.on('before-quit', () => {
+  clearInterval(alarmTimer);
+  clearInterval(cloudSyncTimer);
+});
 
-ipcMain.handle('reminders:get-state', () => state);
+ipcMain.handle('reminders:get-state', () => publicState());
+
+ipcMain.handle('pairing:start', async (_event, platform = 'mobile') => {
+  const session = await cloudRequest('/api/pair/sessions', {
+    method: 'POST',
+    token: '',
+    body: { desktopName: state.cloud.desktopName || os.hostname(), platform: String(platform).slice(0, 24) }
+  });
+  state.cloud.pendingPair = {
+    code: session.code,
+    secret: session.secret,
+    expiresAt: session.expiresAt
+  };
+  state.cloud.status = 'pairing';
+  await saveState(state);
+  await broadcastState();
+  const qrDataUrl = await QRCode.toDataURL(session.pairUrl, {
+    errorCorrectionLevel: 'M',
+    margin: 1,
+    width: 224,
+    color: { dark: '#11191d', light: '#ffffff' }
+  });
+  return { code: session.code, expiresAt: session.expiresAt, qrDataUrl, pairUrl: session.pairUrl };
+});
+
+ipcMain.handle('pairing:status', async () => {
+  const pending = state.cloud.pendingPair;
+  if (!pending) return { status: state.cloud.paired ? 'paired' : 'idle' };
+  try {
+    const payload = await cloudRequest(
+      `/api/pair/sessions/${encodeURIComponent(pending.code)}?secret=${encodeURIComponent(pending.secret)}`,
+      { token: '' }
+    );
+    if (payload.status !== 'paired') return { status: 'pending', code: pending.code, expiresAt: pending.expiresAt };
+    state.cloud.token = payload.token;
+    state.cloud.paired = true;
+    state.cloud.username = payload.profile?.username || '';
+    state.cloud.pendingPair = null;
+    state.cloud.status = 'online';
+    await saveState(state);
+    await syncCloud();
+    return { status: 'paired', username: state.cloud.username };
+  } catch (error) {
+    const expired = Date.parse(pending.expiresAt) <= Date.now();
+    if (expired) {
+      state.cloud.pendingPair = null;
+      state.cloud.status = 'offline';
+      await saveState(state);
+    }
+    return { status: expired ? 'expired' : 'pending', message: error.message };
+  }
+});
+
+ipcMain.handle('pairing:cancel', async () => {
+  state.cloud.pendingPair = null;
+  state.cloud.status = state.cloud.paired ? 'online' : 'offline';
+  await saveState(state);
+  await broadcastState();
+  return { ok: true };
+});
+
+ipcMain.handle('pairing:unpair', async () => {
+  state.cloud = { ...structuredClone(DEFAULT_STATE.cloud), desktopName: state.cloud.desktopName || os.hostname() };
+  await saveState(state);
+  await broadcastState();
+  return { ok: true };
+});
+
+ipcMain.handle('cloud:sync-now', () => syncCloud());
 
 ipcMain.handle('reminders:create', async (_event, input) => {
   const reminder = normaliseReminder(input);
   state.reminders.push(reminder);
   await saveState(state);
   await broadcastState();
+  void runCloudOperation(() => uploadReminder(reminder));
   return reminder;
 });
 
@@ -197,13 +459,19 @@ ipcMain.handle('reminders:update', async (_event, id, input) => {
   state.reminders[index] = normaliseReminder(input, existing);
   await saveState(state);
   await broadcastState();
+  void runCloudOperation(() => uploadReminder(state.reminders[index]));
   return state.reminders[index];
 });
 
 ipcMain.handle('reminders:remove', async (_event, id) => {
   state.reminders = state.reminders.filter((reminder) => reminder.id !== id);
+  state.cloud.deletedIds = [...new Set([...(state.cloud.deletedIds || []), id])].slice(-500);
   await saveState(state);
   await broadcastState();
+  void runCloudOperation(async () => {
+    await cloudRequest(`/api/reminders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    state.cloud.deletedIds = state.cloud.deletedIds.filter((item) => item !== id);
+  });
 });
 
 ipcMain.handle('reminders:toggle-complete', async (_event, id, date) => {
@@ -216,6 +484,7 @@ ipcMain.handle('reminders:toggle-complete', async (_event, id, date) => {
   reminder.completedDates = [...completedDates].sort().slice(-365);
   await saveState(state);
   await broadcastState();
+  void runCloudOperation(() => uploadCompletion(reminder, date, completedDates.has(date)));
   return completedDates.has(date);
 });
 
