@@ -39,8 +39,19 @@ HOVER checks upcoming reminders while it is running. When an alarm is due, Windo
 
 Completed reminders do not trigger alarms. Keep HOVER running for scheduled alarms to fire.
 
+## Pair a phone
+
+On first launch, choose **iPhone** or **Android**. HOVER shows an expiring QR code and a six-character fallback.
+
+1. Scan the QR with the phone Camera app or the HOVER in-app scanner.
+2. Allow notifications if you want mobile alerts.
+3. Choose a HOVER username and save the recovery code.
+4. Wait for the Windows panel to confirm the connection.
+
+Pairing creates separate phone and desktop tokens. HOVER then syncs reminders and completed history in the background. If the network is unavailable, the Windows planner remains usable and retries later.
+
 ## Data and privacy
 
-HOVER does not require an account or internet connection. Reminder data is saved locally in Electron's application-data directory for the current Windows user.
+HOVER does not require an account or internet connection for local use. Reminder data is saved locally in Electron's application-data directory for the current Windows user. Pairing is optional and starts cloud sync only after a username is chosen.
 
 Uninstalling HOVER leaves reminder data in place by default, allowing it to be restored after reinstalling.

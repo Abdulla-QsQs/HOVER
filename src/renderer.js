@@ -10,12 +10,20 @@ const refs = {
   liveClock: el('live-clock'), topmost: el('topmost'), goToday: el('go-today'), editor: el('editor'), editorTitle: el('editor-title'),
   form: el('reminder-form'), formError: el('form-error'), delete: el('delete-reminder'), toast: el('alarm-toast'),
   id: el('reminder-id'), title: el('title'), notes: el('notes'), date: el('date'), repeat: el('repeat'),
-  start: el('start-time'), end: el('end-time'), alarm: el('alarm'), alarmMinutes: el('alarm-minutes')
+  start: el('start-time'), end: el('end-time'), alarm: el('alarm'), alarmMinutes: el('alarm-minutes'),
+  pairPanel: el('pairing-panel'), pairIntro: el('pairing-intro'), pairCodeStep: el('pairing-code-step'),
+  pairSuccess: el('pairing-success'), pairQr: el('pairing-qr'), pairCode: el('pairing-code'),
+  pairStatus: el('pairing-status'), pairSuccessCopy: el('pairing-success-copy'), pairButton: el('pair-phone')
 };
 
-let appState = { reminders: [], settings: { alwaysOnTop: true, islandMode: false } };
+let appState = {
+  reminders: [],
+  settings: { alwaysOnTop: true, islandMode: false },
+  cloud: { paired: false, username: '', desktopName: '', lastSync: null, status: 'offline' }
+};
 let selectedDate = startOfDay(new Date());
 let toastTimer;
+let pairingPollTimer;
 
 function startOfDay(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
 function dateKey(date) {
@@ -283,11 +291,89 @@ function render({ scrollToNow = false } = {}) {
   const events = eventsForSelectedDay();
   renderIsland();
   renderHeader(events);
+  renderCloudState();
   renderEvents(events);
   renderNowLine();
   if (scrollToNow && isToday(selectedDate)) {
     const now = new Date();
     refs.calendarScroll.scrollTop = Math.max(0, (now.getHours() - HOURS_START - 1) * HOUR_HEIGHT);
+  }
+}
+
+function renderCloudState() {
+  const cloud = appState.cloud || {};
+  refs.pairButton.textContent = cloud.paired ? 'Phone' : 'Pair';
+  refs.pairButton.dataset.paired = cloud.paired ? 'true' : 'false';
+  refs.pairButton.title = cloud.paired
+    ? `${cloud.username ? `@${cloud.username}` : 'HOVER'} · ${cloud.status === 'syncing' ? 'Syncing' : 'Connected'}`
+    : 'Pair HOVER with iPhone or Android';
+}
+
+function showPairingStep(step) {
+  refs.pairIntro.hidden = step !== 'intro';
+  refs.pairCodeStep.hidden = step !== 'code';
+  refs.pairSuccess.hidden = step !== 'success';
+}
+
+function openPairing() {
+  if (refs.editor.classList.contains('open')) closeEditor();
+  clearInterval(pairingPollTimer);
+  document.body.classList.add('pairing-open');
+  refs.pairPanel.classList.add('open');
+  refs.pairPanel.setAttribute('aria-hidden', 'false');
+  if (appState.cloud?.paired) {
+    refs.pairSuccessCopy.textContent = `@${appState.cloud.username || 'hover'} is connected. HOVER syncs in the background.`;
+    showPairingStep('success');
+  } else {
+    showPairingStep('intro');
+  }
+}
+
+async function closePairing({ cancel = false } = {}) {
+  clearInterval(pairingPollTimer);
+  pairingPollTimer = undefined;
+  if (cancel && !refs.pairCodeStep.hidden) await window.reminders.cancelPairing();
+  refs.pairPanel.classList.remove('open');
+  refs.pairPanel.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('pairing-open');
+}
+
+async function startPairing(platform) {
+  showPairingStep('code');
+  refs.pairStatus.textContent = 'Creating a secure pairing code…';
+  refs.pairCode.textContent = '------';
+  refs.pairQr.removeAttribute('src');
+  try {
+    const session = await window.reminders.startPairing(platform);
+    refs.pairQr.src = session.qrDataUrl;
+    refs.pairCode.textContent = session.code;
+    refs.pairStatus.textContent = 'Waiting for your phone…';
+    clearInterval(pairingPollTimer);
+    pairingPollTimer = setInterval(() => void pollPairing(), 2_000);
+    void pollPairing();
+  } catch (error) {
+    refs.pairStatus.textContent = error.message || 'Could not create a pairing code. Check your connection.';
+  }
+}
+
+async function pollPairing() {
+  try {
+    const status = await window.reminders.pairingStatus();
+    if (status.status === 'paired') {
+      clearInterval(pairingPollTimer);
+      pairingPollTimer = undefined;
+      refs.pairSuccessCopy.textContent = `@${status.username || 'hover'} is connected. Your planner is syncing now.`;
+      showPairingStep('success');
+      localStorage.setItem('hover-pairing-intro-seen', 'true');
+    } else if (status.status === 'expired') {
+      clearInterval(pairingPollTimer);
+      pairingPollTimer = undefined;
+      refs.pairStatus.textContent = 'This code expired. Close and create a new one.';
+    } else if (status.message) {
+      refs.pairStatus.textContent = 'Still waiting for your phone…';
+    }
+  } catch {
+    refs.pairStatus.textContent = 'Connection paused. HOVER will keep checking.';
   }
 }
 
@@ -393,6 +479,26 @@ el('create-shortcut').addEventListener('click', async () => {
   const result = await window.reminders.createDesktopShortcut();
   showToast(result.message);
 });
+refs.pairButton.addEventListener('click', openPairing);
+document.querySelectorAll('[data-pair-platform]').forEach((button) => {
+  button.addEventListener('click', () => void startPairing(button.dataset.pairPlatform));
+});
+el('pairing-close').addEventListener('click', () => void closePairing({ cancel: true }));
+el('pairing-cancel').addEventListener('click', async () => {
+  await window.reminders.cancelPairing();
+  showPairingStep('intro');
+});
+el('pairing-skip').addEventListener('click', () => {
+  localStorage.setItem('hover-pairing-intro-seen', 'true');
+  void closePairing({ cancel: true });
+});
+el('pairing-done').addEventListener('click', async () => {
+  if (appState.cloud?.paired) {
+    const result = await window.reminders.syncNow();
+    showToast(result.message);
+  }
+  await closePairing();
+});
 el('enable-island').addEventListener('click', () => window.reminders.setIslandMode(true));
 el('island-expand').addEventListener('click', () => window.reminders.setIslandMode(false));
 refs.islandComplete.addEventListener('click', () => {
@@ -413,6 +519,7 @@ document.addEventListener('keydown', (event) => {
     if (!refs.editor.classList.contains('open')) openEditor();
   }
   if (event.key === 'Escape' && refs.editor.classList.contains('open')) closeEditor();
+  else if (event.key === 'Escape' && refs.pairPanel.classList.contains('open')) void closePairing({ cancel: true });
 });
 
 refs.form.addEventListener('submit', async (event) => {
@@ -440,6 +547,15 @@ buildGrid();
 window.reminders.getState().then((initialState) => {
   appState = initialState;
   render({ scrollToNow: true });
+  if (!appState.cloud?.paired && (appState.cloud?.forcePairingPrompt || localStorage.getItem('hover-pairing-intro-seen') !== 'true')) {
+    openPairing();
+    if (appState.cloud?.forcePairingQr) {
+      refs.pairQr.src = appState.cloud.snapshotQrUrl;
+      refs.pairCode.textContent = 'HVR7K2';
+      refs.pairStatus.textContent = 'Waiting for your phone…';
+      showPairingStep('code');
+    }
+  }
 });
 setInterval(() => {
   refs.liveClock.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
