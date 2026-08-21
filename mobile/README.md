@@ -1,6 +1,8 @@
 # HOVER mobile companion
 
-This folder contains the installable mobile PWA prototype for iPhone and Android. Its planner uses the approved option 1 calendar layout with option 3's OLED-black glass treatment.
+This folder contains the installable HOVER phone app for iPhone and Android. Its planner uses the approved option 1 calendar layout with option 3's OLED-black glass treatment.
+
+Canonical install address: **https://hover-reminder.pages.dev/**
 
 ## Included now
 
@@ -16,7 +18,8 @@ This folder contains the installable mobile PWA prototype for iPhone and Android
 - Optional compact next-reminder island in Settings.
 - iPhone and Pixel 10 preview runtimes.
 - Real expiring QR/manual-code pairing, separate device tokens, recovery restore, cloud usernames, reminder sync, deletion sync, and completed-history sync.
-- Web app manifest, dedicated install icons, in-app Home Screen control, app shortcuts, and a privacy-safe offline shell.
+- Web app manifest, black-backed iOS and maskable Android icons, in-app Home Screen control, app shortcuts, and a privacy-safe offline shell.
+- Edge-to-edge production runtime with the real phone status bar, keyboard, safe areas, scrolling, and touch behavior. The framed device simulator is limited to desktop QA.
 - Standards-based Web Push subscriptions, timezone-aware server scheduling, encrypted delivery, retries, deduplication, expired-device cleanup, and an in-app test notification.
 
 The in-app scanner uses the browser's native QR detector when available and always provides a six-character fallback. iPhone users can also scan the desktop QR with the native Camera app, which opens the signed pairing URL directly. Username, planner state, and completion history remain available locally while a paired profile syncs them through the D1 backend.

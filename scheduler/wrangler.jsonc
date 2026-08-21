@@ -9,6 +9,6 @@
     "crons": ["* * * * *"]
   },
   "vars": {
-    "HOVER_API_URL": "https://hover-mobile-companion.abdullahazam1077.chatgpt.site"
+    "HOVER_API_URL": "https://hover-reminder.pages.dev"
   }
 }

@@ -1,9 +1,12 @@
-const CACHE_NAME = "hover-mobile-v2";
+const CACHE_NAME = "hover-mobile-v3";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
   "/assets/hover/icon.png",
   "/assets/hover/icon-192.png",
+  "/assets/hover/icon-maskable.png",
+  "/assets/hover/icon-maskable-192.png",
+  "/assets/hover/apple-touch-icon.png",
   "/assets/hover/starfield.png",
 ];
 
@@ -51,8 +54,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "HOVER reminder", {
       body: data.body || "A reminder is ready.",
-      icon: "/assets/hover/icon.png",
-      badge: "/assets/hover/icon-192.png",
+      icon: "/assets/hover/icon-maskable.png",
+      badge: "/assets/hover/icon-maskable-192.png",
       tag: data.tag || "hover-reminder",
       renotify: true,
       requireInteraction: true,

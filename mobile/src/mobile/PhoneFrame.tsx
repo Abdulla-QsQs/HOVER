@@ -61,13 +61,37 @@ function useDeviceScale(deviceWidth: number, deviceHeight: number) {
   return scale;
 }
 
-export function PhoneFrame({ children }: PropsWithChildren) {
+export function PhoneFrame({ children, native = false }: PropsWithChildren<{ native?: boolean }>) {
   const { device } = useMobileDevice();
   const { geometry } = device;
   const scale = useDeviceScale(geometry.device.width, geometry.device.height);
   const screenRef = useRef<HTMLDivElement | null>(null);
   const contextValue = useMemo(() => ({ screenRef }), []);
   const mobileCursor = useMobileCursor();
+
+  if (native) {
+    return (
+      <ScreenPortalContext.Provider value={contextValue}>
+        <div
+          ref={screenRef}
+          className="device-screen native-app-shell"
+          data-device={device.id}
+          data-native-mobile="true"
+          data-phone-screen
+          data-platform={device.platform}
+          data-testid="device-screen"
+          onDragStartCapture={suppressNativeDrag}
+          style={
+            {
+              "--device-safe-area-bottom": "env(safe-area-inset-bottom, 0px)",
+            } as CSSProperties
+          }
+        >
+          {children}
+        </div>
+      </ScreenPortalContext.Provider>
+    );
+  }
 
   return (
     <ScreenPortalContext.Provider value={contextValue}>

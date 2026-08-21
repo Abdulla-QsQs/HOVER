@@ -16,6 +16,9 @@
 - Backward date navigation stops at the earliest date represented by reminder history or scheduled data. Never navigate into dates with no available history.
 - Treat Home Screen installation and Web Push as first-class mobile settings: show a clear installed/available state, a connected notification state, and a direct test action without changing the approved planner hierarchy.
 - Cloud alarms use the reminder's IANA timezone, standards-based encrypted Web Push, deduplication, bounded retries, and expired-subscription cleanup. Never cache API, pairing-secret, or authenticated sync responses in the service worker.
+- The shipped phone experience is not a framed simulator. On iPhone, iPad, Android, or an installed Home Screen launch, render HOVER edge-to-edge with the real operating-system status bar, keyboard, scrolling, pointer behavior, and safe areas. Never show the preview device picker, fake bezel, custom touch cursor, simulated status bar, simulated home indicator, or simulated keyboard in that mode.
+- Keep the framed iPhone / Pixel runtime only for desktop visual QA. `?runtime=preview` forces the QA shell and `?runtime=native` forces the production phone shell for deterministic checks.
+- The public install address must be HOVER-branded and must not expose a personal ChatGPT Sites namespace. The canonical free deployment is `https://hover-reminder.pages.dev/`.
 
 In ChatGPT Work Mode, run `sites-preview start "$PWD"`, open `http://terminal.local:4173/` in the cloud browser, and verify the rendered app and its primary interactions. Keep that preview open and tell the user to inspect it in the cloud browser; do not present the local URL as a user-facing chat link. In Codex Desktop, run the local server yourself, open the preview in the in-app browser, and provide the clickable local URL. Do not deploy to Sites unless the user explicitly asks to share, publish, or deploy. Do not give the user server-start instructions when you can run it.
 

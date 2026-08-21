@@ -45,6 +45,11 @@ body {
   overflow: hidden;
 }
 
+body,
+#root {
+  background: #000;
+}
+
 button,
 input,
 textarea {
@@ -184,6 +189,32 @@ button {
   z-index: 1;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.native-app-shell {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  border-radius: 0;
+  background: #000;
+  box-shadow: none;
+  cursor: auto;
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+.native-app-shell,
+.native-app-shell * {
+  cursor: auto !important;
+}
+
+.native-app-shell button,
+.native-app-shell a,
+.native-app-shell [role="button"] {
+  cursor: pointer !important;
 }
 
 .device-camera {
@@ -341,6 +372,18 @@ button {
 
 .mobile-scroll[data-dragging="true"] {
   cursor: none;
+}
+
+.mobile-scroll-native {
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  user-select: auto;
+}
+
+.native-app-shell .sheet-content {
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
 
 .mobile-cursor {

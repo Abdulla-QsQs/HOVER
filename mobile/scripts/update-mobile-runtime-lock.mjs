@@ -23,6 +23,7 @@ const protectedFiles = [
   "src/mobile/MobileRuntime.tsx",
   "src/mobile/MobileScroll.tsx",
   "src/mobile/PhoneFrame.tsx",
+  "src/mobile/RuntimeMode.tsx",
   "src/mobile/assets.ts",
   "src/mobile/components.tsx",
   "src/mobile/geometry.ts",
@@ -35,6 +36,7 @@ const protectedFiles = [
   "public/assets/status/status-icons.svg",
   "public/assets/status/ios-status-icons.svg",
   "worker/index.js",
+  "worker/pages-proxy.js",
 ];
 
 function hashFile(filePath) {

@@ -19,7 +19,7 @@ let isQuitting = false;
 const FULL_WINDOW = { width: 430, height: 620 };
 const ISLAND_WINDOW = { width: 360, height: 82 };
 const WINDOWS_APP_ID = 'com.hover.reminders';
-const CLOUD_BASE_URL = process.env.HOVER_CLOUD_URL || 'https://hover-mobile-companion.abdullahazam1077.chatgpt.site';
+const CLOUD_BASE_URL = process.env.HOVER_CLOUD_URL || 'https://hover-reminder.pages.dev';
 
 const DEFAULT_STATE = {
   reminders: [],

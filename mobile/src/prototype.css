@@ -32,6 +32,32 @@ button {
   color: var(--hover-ink);
 }
 
+.native-app-shell .hover-app,
+.native-app-shell .hover-stage {
+  --mobile-safe-area-height: env(safe-area-inset-bottom, 0px);
+}
+
+.native-app-shell .planner-content,
+.native-app-shell .profile-content {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 18px);
+}
+
+.native-app-shell .onboarding-screen,
+.native-app-shell .scanner-screen,
+.native-app-shell .restore-screen,
+.native-app-shell .username-screen {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 24px);
+}
+
+.native-app-shell .splash-screen,
+.native-app-shell .permission-screen {
+  padding-top: max(24px, env(safe-area-inset-top, 0px));
+}
+
+.native-app-shell .planner-dock {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+}
+
 .device-screen .status-bar {
   color: #fff;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.75);

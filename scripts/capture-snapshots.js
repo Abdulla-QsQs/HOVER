@@ -9,7 +9,7 @@ const captureWindows = [];
 
 async function capture(filename, width, height, additionalArguments = []) {
   if (additionalArguments.includes('--snapshot-pairing-qr')) {
-    await QRCode.toFile(path.join(outputDirectory, 'hover-qr-fixture.png'), 'https://hover-mobile-companion.abdullahazam1077.chatgpt.site/?pair=HVR7K2&secret=visual-check', { margin: 1, width: 224 });
+    await QRCode.toFile(path.join(outputDirectory, 'hover-qr-fixture.png'), 'https://hover-reminder.pages.dev/?pair=HVR7K2&secret=visual-check', { margin: 1, width: 224 });
   }
   const window = new BrowserWindow({
     width,

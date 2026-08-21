@@ -8,10 +8,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist");
 const index = path.join(dist, "client", "index.html");
 const worker = path.join(root, "worker", "index.js");
+const pagesWorker = path.join(root, "worker", "pages-proxy.js");
 const hosting = path.join(root, ".openai", "hosting.json");
 const migrations = path.join(root, "drizzle");
 
-for (const file of [index, worker, hosting]) {
+for (const file of [index, worker, pagesWorker, hosting]) {
   if (!existsSync(file)) throw new Error("Missing Sites build input: " + file);
 }
 
@@ -28,6 +29,7 @@ buildSync({
   sourcemap: false,
 });
 copyFileSync(hosting, path.join(dist, ".openai", "hosting.json"));
+copyFileSync(pagesWorker, path.join(dist, "client", "_worker.js"));
 if (existsSync(migrations)) cpSync(migrations, path.join(dist, ".openai", "drizzle"), { recursive: true });
 
-console.log("Prepared Sites build: worker, hosting config, and D1 migrations");
+console.log("Prepared Sites and Pages builds: workers, hosting config, and D1 migrations");
