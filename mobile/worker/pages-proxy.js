@@ -15,6 +15,8 @@ export default {
   },
 };
 
+const MAX_API_BODY_BYTES = 64 * 1024;
+
 async function proxyCloudRequest(request, publicUrl, configuredOrigin) {
   const cloudOrigin = secureOrigin(configuredOrigin);
   if (!cloudOrigin) return json({ error: "HOVER cloud is not configured." }, 503);
@@ -24,21 +26,35 @@ async function proxyCloudRequest(request, publicUrl, configuredOrigin) {
   headers.delete("host");
   headers.delete("origin");
   headers.delete("referer");
+  headers.delete("content-length");
+  headers.delete("connection");
+  headers.delete("transfer-encoding");
+  headers.delete("accept-encoding");
 
   let response;
+  let responseBody;
   try {
+    const hasBody = request.method !== "GET" && request.method !== "HEAD";
+    const body = hasBody ? await request.arrayBuffer() : undefined;
+    if (body && body.byteLength > MAX_API_BODY_BYTES) return json({ error: "That HOVER request is too large." }, 413);
     response = await fetch(upstreamUrl, {
       method: request.method,
       headers,
-      body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+      body,
       redirect: "manual",
     });
+    responseBody = await response.arrayBuffer();
   } catch {
     return json({ error: "HOVER cloud is temporarily unavailable." }, 502);
   }
 
   if (request.method === "POST" && publicUrl.pathname === "/api/pair/sessions" && response.ok) {
-    const payload = await response.json();
+    let payload;
+    try {
+      payload = JSON.parse(new TextDecoder().decode(responseBody));
+    } catch {
+      return json({ error: "HOVER cloud returned an invalid pairing response." }, 502);
+    }
     if (typeof payload.pairUrl === "string") {
       const pairUrl = new URL(payload.pairUrl);
       payload.pairUrl = `${publicUrl.origin}${pairUrl.pathname}${pairUrl.search}`;
@@ -50,7 +66,7 @@ async function proxyCloudRequest(request, publicUrl, configuredOrigin) {
   responseHeaders.delete("set-cookie");
   responseHeaders.set("cache-control", "no-store");
   responseHeaders.set("x-content-type-options", "nosniff");
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers: responseHeaders });
+  return new Response(responseBody, { status: response.status, statusText: response.statusText, headers: responseHeaders });
 }
 
 function secureOrigin(value) {
@@ -64,7 +80,7 @@ function secureOrigin(value) {
 
 function withSecurityHeaders(response) {
   const headers = new Headers(response.headers);
-  headers.set("content-security-policy", "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  headers.set("content-security-policy", "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; manifest-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   headers.set("permissions-policy", "camera=(self), microphone=(), geolocation=()");
   headers.set("referrer-policy", "no-referrer");
   headers.set("x-content-type-options", "nosniff");

@@ -128,7 +128,7 @@ test("health endpoint initializes the D1 schema and returns CORS headers", async
   const { response, data } = await api(env, "/api/health");
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("access-control-allow-origin"), "*");
-  assert.deepEqual(data, { ok: true, database: true, push: false, version: "2026-08-21.2" });
+  assert.deepEqual(data, { ok: true, database: true, push: false, version: "2026-08-21.3" });
 
   const options = await worker.fetch(new Request("https://hover.test/api/sync", { method: "OPTIONS" }), env);
   assert.equal(options.status, 204);
@@ -159,6 +159,7 @@ test("QR pairing issues separate mobile and desktop tokens and syncs reminders",
     body: {
       code: created.data.code,
       secret: created.data.secret,
+      claimKey: "Q".repeat(43),
       username: "qa_hover",
       kind: "ios",
       deviceName: "QA iPhone",
@@ -167,6 +168,22 @@ test("QR pairing issues separate mobile and desktop tokens and syncs reminders",
   assert.equal(claimed.response.status, 201);
   assert.match(claimed.data.recoveryCode, /^HVR-(?:[A-Z0-9]{4}-){2}[A-Z0-9]{4}$/);
   assert.equal(claimed.data.profile.username, "qa_hover");
+
+  const retriedClaim = await api(env, "/api/pair/claim", {
+    method: "POST",
+    body: {
+      code: created.data.code,
+      secret: created.data.secret,
+      claimKey: "Q".repeat(43),
+      username: "qa_hover",
+      kind: "ios",
+      deviceName: "QA iPhone",
+    },
+  });
+  assert.equal(retriedClaim.response.status, 200);
+  assert.equal(retriedClaim.data.token, claimed.data.token);
+  assert.equal(retriedClaim.data.recoveryCode, claimed.data.recoveryCode);
+  assert.equal(retriedClaim.data.profile.username, "qa_hover");
 
   const paired = await api(env, `/api/pair/sessions/${created.data.code}?secret=${encodeURIComponent(created.data.secret)}`);
   assert.equal(paired.response.status, 200);
@@ -350,9 +367,12 @@ test("applies the production D1 migrations in order", async () => {
   database.exec("PRAGMA foreign_keys = ON");
   database.exec(await readFile(new URL("../drizzle/0000_hover_cloud.sql", import.meta.url), "utf8"));
   database.exec(await readFile(new URL("../drizzle/0001_web_push.sql", import.meta.url), "utf8"));
+  database.exec(await readFile(new URL("../drizzle/0002_pair_claim_retry.sql", import.meta.url), "utf8"));
   const reminderColumns = database.prepare("PRAGMA table_info(reminders)").all().map((column) => column.name);
   assert.ok(reminderColumns.includes("timezone"));
   assert.ok(reminderColumns.includes("next_fire_at"));
+  const pairColumns = database.prepare("PRAGMA table_info(pair_sessions)").all().map((column) => column.name);
+  assert.ok(pairColumns.includes("claim_key_hash"));
   const tables = database.prepare("SELECT name FROM sqlite_schema WHERE type = 'table'").all().map((row) => row.name);
   assert.ok(tables.includes("push_subscriptions"));
   assert.ok(tables.includes("notification_deliveries"));
@@ -364,6 +384,7 @@ test("emits the files required by Sites packaging", async () => {
   await access(new URL("../dist/.openai/hosting.json", import.meta.url));
   await access(new URL("../dist/.openai/drizzle/0000_hover_cloud.sql", import.meta.url));
   await access(new URL("../dist/.openai/drizzle/0001_web_push.sql", import.meta.url));
+  await access(new URL("../dist/.openai/drizzle/0002_pair_claim_retry.sql", import.meta.url));
   const hosting = JSON.parse(await readFile(new URL("../dist/.openai/hosting.json", import.meta.url), "utf8"));
   assert.equal(hosting.d1, "DB");
 });
