@@ -14,6 +14,11 @@ HOVER keeps the day within reach without taking over the desktop. Reminders appe
 
 **[Download HOVER for Windows](https://github.com/Abdulla-QsQs/HOVER/releases/latest/download/HOVER-Setup-1.2.0.exe)**
 
+**[Install HOVER on your iPhone or Android Home Screen](https://hover-mobile-companion.abdullahazam1077.chatgpt.site/)**
+
+- **iPhone or iPad:** open the link in Safari, tap **Share**, then **Add to Home Screen**.
+- **Android:** open the link in Chrome, open the menu, then choose **Install app** or **Add to Home screen**.
+
 The direct link downloads `HOVER-Setup-1.2.0.exe`. The guided installer can create Desktop and Start menu shortcuts. Release notes and checksums are available on the [Releases page](https://github.com/Abdulla-QsQs/HOVER/releases/latest).
 
 > HOVER 1.2.0 is not code-signed. Windows SmartScreen may show an **Unknown publisher** notice; choose **More info → Run anyway** only when you downloaded it from this repository.
@@ -35,7 +40,7 @@ The installable mobile PWA lives in [`mobile/`](mobile/README.md). It preserves 
 
 The v1.2 backend adds standards-based Web Push subscriptions, timezone-aware alarm scheduling, encrypted iPhone/Android delivery, retries, deduplication, expired-device cleanup, and test notifications. Windows now starts with the user and remains in the tray after the window closes so local alarms continue running.
 
-**[Open the HOVER mobile companion](https://hover-mobile-companion.abdullahazam1077.chatgpt.site/)**
+**[Install HOVER on your Home Screen](https://hover-mobile-companion.abdullahazam1077.chatgpt.site/)**
 
 <p align="center">
   <img src="docs/screenshots/hover-island.png" width="360" alt="HOVER compact island view">
