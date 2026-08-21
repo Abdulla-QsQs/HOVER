@@ -548,7 +548,7 @@ button {
   right: 13px;
   left: 54px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
   align-items: stretch;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.24);
@@ -581,6 +581,25 @@ button {
   transition: color 220ms ease, border-color 220ms ease, background 220ms ease, transform 220ms var(--hover-ease);
 }
 
+.drag-control {
+  width: 30px;
+  min-width: 30px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  justify-self: center;
+  padding: 0;
+  border: 0;
+  color: rgba(236, 248, 251, 0.58);
+  background: transparent;
+  touch-action: none;
+}
+
+.drag-control:active {
+  color: #fff;
+}
+
 .complete-control svg {
   width: 14px;
   height: 14px;
@@ -596,16 +615,14 @@ button {
 
 .reminder-main {
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px;
-  gap: 7px;
+  display: flex;
   align-items: center;
   padding: 8px 8px 8px 9px;
   border: 0;
   color: #fff;
   text-align: left;
   background: transparent;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .reminder-copy {
@@ -626,7 +643,7 @@ button {
 .drag-grip {
   width: 20px;
   height: 20px;
-  color: rgba(236, 248, 251, 0.52);
+  color: currentColor;
 }
 
 .empty-day {
@@ -1654,6 +1671,17 @@ button {
   object-fit: cover;
 }
 
+.scanner-window > div {
+  z-index: 2;
+  border: 2px solid rgba(190, 238, 249, 0.82) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28), 0 0 24px rgba(168, 231, 245, 0.22);
+}
+
+.scanner-window > div svg {
+  stroke: #dff9ff !important;
+}
+
 .scanner-window > svg {
   position: relative;
   z-index: 1;
@@ -1698,6 +1726,16 @@ button {
   letter-spacing: 0.18em;
   text-align: center;
   text-transform: uppercase;
+}
+
+.pair-code-form {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.pair-code-form .pair-code-input {
+  margin-bottom: 0;
 }
 
 .restore-screen {

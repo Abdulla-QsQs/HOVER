@@ -1,5 +1,14 @@
 # Changelog
 
+## Mobile 0.3.1 - Reliable pairing and planner access
+
+- Added an iOS-compatible continuous QR decoder instead of relying on the unavailable Safari `BarcodeDetector` API.
+- Made the six-character pairing code a real form with a visible submit action and native keyboard Go/Enter support.
+- Removed legacy sample reminders and their completion records from local and synced planner data.
+- Replaced hardcoded desktop names in the mobile planner with the signed-in username and current phone type.
+- Restored native vertical calendar scrolling at a readable hour scale while keeping hold-to-drag on a dedicated handle.
+- Updated the current-time line every second and immediately after the app regains focus or visibility.
+
 ## 1.2.1 - Standalone mobile runtime
 
 - Moved the public Home Screen install link to `https://hover-reminder.pages.dev/`.

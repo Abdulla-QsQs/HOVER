@@ -54,14 +54,16 @@ export function MobileScroll(props: MobileScrollProps) {
 
 function NativeMobileScroll({ className, children }: MobileScrollProps) {
   return (
-    <div
-      className={`mobile-scroll mobile-scroll-native${className ? ` ${className}` : ""}`}
-      data-native-scroll="true"
-      data-overscroll="0.00"
-      data-testid="mobile-scroll"
-    >
-      <div className="mobile-scroll-content">{children}</div>
-    </div>
+    <section className={`mobile-page${className ? ` ${className}` : ""}`}>
+      <div
+        className="mobile-scroll mobile-scroll-native"
+        data-native-scroll="true"
+        data-overscroll="0.00"
+        data-testid="mobile-scroll"
+      >
+        <div className="mobile-scroll-content">{children}</div>
+      </div>
+    </section>
   );
 }
 

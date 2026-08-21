@@ -18,6 +18,7 @@ import {
   ReloadIcon,
 } from "@radix-ui/react-icons";
 import { AnimatePresence, motion } from "motion/react";
+import QrScanner from "qr-scanner";
 import {
   type FormEvent,
   type PointerEvent as ReactPointerEvent,
@@ -85,7 +86,6 @@ type CompletedReminder = {
 type PendingPair = {
   code: string;
   secret?: string;
-  desktopName?: string;
 };
 
 type CloudSyncPayload = {
@@ -100,74 +100,27 @@ type CloudSyncPayload = {
   code?: string;
 };
 
-type BarcodeDetectorInstance = {
-  detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>;
-};
-type BarcodeDetectorConstructor = new (options: { formats: string[] }) => BarcodeDetectorInstance;
-
 const BASE_DATE = startOfLocalDay(new Date());
 const BASE_DATE_KEY = dateKey(BASE_DATE);
 const START_HOUR = 7;
 const END_HOUR = 20;
-const HOUR_HEIGHT = 31.5;
-const DEFAULT_DESKTOP = "ABDULLA-PC";
+const HOUR_HEIGHT = 64;
 const HISTORY_COLOR = "#541804";
+const LEGACY_DEMO_REMINDER_IDS = new Set([
+  "morning-focus",
+  "plan-launch",
+  "mobile-pairing",
+  "evening-walk",
+]);
 
-const initialReminders: Reminder[] = [
-  {
-    id: "morning-focus",
-    title: "Morning focus",
-    start: "08:15",
-    end: "09:15",
-    dateKey: BASE_DATE_KEY,
-    color: "sky",
-    top: topForTime("08:15"),
-    height: heightForTimes("08:15", "09:15"),
-    alarm: true,
-  },
-  {
-    id: "plan-launch",
-    title: "Plan the launch",
-    start: "10:30",
-    end: "11:45",
-    dateKey: BASE_DATE_KEY,
-    color: "violet",
-    top: topForTime("10:30"),
-    height: heightForTimes("10:30", "11:45"),
-    alarm: true,
-  },
-  {
-    id: "mobile-pairing",
-    title: "Review mobile pairing",
-    start: "14:00",
-    end: "14:45",
-    dateKey: BASE_DATE_KEY,
-    color: "mint",
-    top: topForTime("14:00"),
-    height: heightForTimes("14:00", "14:45"),
-    alarm: false,
-  },
-  {
-    id: "evening-walk",
-    title: "Evening walk",
-    start: "18:00",
-    end: "18:30",
-    dateKey: BASE_DATE_KEY,
-    color: "coral",
-    top: topForTime("18:00"),
-    height: heightForTimes("18:00", "18:30"),
-    alarm: true,
-  },
-];
+const initialReminders: Reminder[] = [];
 
 const colors: ReminderColor[] = ["sky", "violet", "mint", "coral", "sun"];
 
 export default function Prototype() {
   const keyboard = useKeyboard();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const cameraStreamRef = useRef<MediaStream | null>(null);
-  const barcodeDetectorRef = useRef<BarcodeDetectorInstance | null>(null);
-  const scanFrameRef = useRef<number | null>(null);
+  const qrScannerRef = useRef<QrScanner | null>(null);
   const actionHandledRef = useRef(false);
   const dragRef = useRef<{
     id: string;
@@ -226,6 +179,7 @@ export default function Prototype() {
     .filter((reminder) => reminder.dateKey === selectedDateKey)
     .sort((a, b) => a.top - b.top);
   const currentTimeKey = timeKey(now);
+  const currentTimePosition = topForDateTime(now);
   const nextReminder = selectedOffset === 0
     ? selectedReminders.find((reminder) => reminder.start >= currentTimeKey)
     : selectedReminders[0];
@@ -245,8 +199,20 @@ export default function Prototype() {
   }, [phase]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(timer);
+    const updateClock = () => setNow(new Date());
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") updateClock();
+    };
+    const timer = window.setInterval(updateClock, 1_000);
+    window.addEventListener("focus", updateClock);
+    window.addEventListener("pageshow", updateClock);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", updateClock);
+      window.removeEventListener("pageshow", updateClock);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -258,6 +224,7 @@ export default function Prototype() {
   }, [history]);
 
   useEffect(() => {
+    window.localStorage.removeItem("hover-desktop");
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     }
@@ -304,13 +271,11 @@ export default function Prototype() {
     setCloudError("");
     setScannerStatus("Checking the secure pairing session…");
     try {
-      const session = await cloudRequest(`/api/pair/inspect?code=${encodeURIComponent(code)}`);
-      const desktopName = String(session.desktopName || DEFAULT_DESKTOP);
-      setPendingPair({ code, secret, desktopName });
-      window.localStorage.setItem("hover-desktop", desktopName);
+      await cloudRequest(`/api/pair/inspect?code=${encodeURIComponent(code)}`);
+      setPendingPair({ code, secret });
       stopCamera();
       keyboard.hide();
-      setScannerStatus(`${desktopName} found. Continue to pair.`);
+      setScannerStatus("HOVER desktop found. Continue to pair.");
       setPhase("permission");
     } catch (error) {
       const message = error instanceof Error ? error.message : "That pairing code could not be verified.";
@@ -321,32 +286,6 @@ export default function Prototype() {
     }
   };
 
-  const scanForDesktopCode = async () => {
-    const detector = barcodeDetectorRef.current;
-    const video = videoRef.current;
-    if (!detector || !video || !cameraStreamRef.current) return;
-
-    try {
-      const results = await detector.detect(video);
-      const result = results.find((item) => Boolean(item.rawValue));
-      if (result?.rawValue) {
-        const pair = parsePairPayload(result.rawValue);
-        if (!pair) {
-          setScannerStatus("That QR code is not a HOVER pairing code.");
-          scanFrameRef.current = window.requestAnimationFrame(() => void scanForDesktopCode());
-          return;
-        }
-        setScannerStatus("HOVER code found. Pairing…");
-        await beginPair(pair.code, pair.secret);
-        return;
-      }
-    } catch {
-      // Keep the camera active; the six-character code remains available.
-    }
-
-    scanFrameRef.current = window.requestAnimationFrame(() => void scanForDesktopCode());
-  };
-
   const startCamera = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setScannerStatus("Camera scanning is unavailable here. Enter the pairing code instead.");
@@ -354,35 +293,41 @@ export default function Prototype() {
     }
 
     try {
+      stopCamera();
       setScannerStatus("Starting camera…");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
+      const video = videoRef.current;
+      if (!video) throw new Error("The scanner view is not ready.");
+      const scanner = new QrScanner(video, (result) => {
+        const pair = parsePairPayload(result.data);
+        if (!pair) {
+          setScannerStatus("That QR code is not a HOVER pairing code.");
+          return;
+        }
+        scanner.stop();
+        setScannerStatus("HOVER code found. Pairing…");
+        void beginPair(pair.code, pair.secret);
+      }, {
+        preferredCamera: "environment",
+        maxScansPerSecond: 10,
+        highlightScanRegion: true,
+        highlightCodeOutline: true,
+        returnDetailedScanResult: true,
+        onDecodeError: () => undefined,
       });
-      cameraStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      const Detector = (window as typeof window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
-      barcodeDetectorRef.current = Detector ? new Detector({ formats: ["qr_code"] }) : null;
-      setScannerStatus(
-        barcodeDetectorRef.current
-          ? "Point the camera at the HOVER code on your desktop"
-          : "Camera ready. If automatic scan is unavailable, use the pairing code below.",
-      );
-      if (barcodeDetectorRef.current) void scanForDesktopCode();
+      scanner.setInversionMode("both");
+      qrScannerRef.current = scanner;
+      await scanner.start();
+      setScannerStatus("Point the camera at the HOVER code on your desktop");
     } catch {
+      stopCamera();
       setScannerStatus("Camera access was not enabled. Use the six-character code below.");
     }
   };
 
   const stopCamera = () => {
-    if (scanFrameRef.current !== null) window.cancelAnimationFrame(scanFrameRef.current);
-    scanFrameRef.current = null;
-    barcodeDetectorRef.current = null;
-    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
-    cameraStreamRef.current = null;
+    qrScannerRef.current?.destroy();
+    qrScannerRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
   };
 
   const finishNotificationSetup = async (requestPermission: boolean) => {
@@ -449,8 +394,8 @@ export default function Prototype() {
             .catch(() => setPushState("error"));
         }
         if (payload.recoveryCode) setSavedRecoveryCode(payload.recoveryCode);
-        if (payload.desktop?.name) window.localStorage.setItem("hover-desktop", payload.desktop.name);
         applyCloudPayload(payload, setReminders, setHistory, normalized);
+        void removeLegacyDemoCloudData(payload.token, payload);
         setPendingPair(null);
         window.history.replaceState({}, "", "/?screen=planner");
       } else if (cloudToken) {
@@ -495,6 +440,7 @@ export default function Prototype() {
       setUsername(payload.profile.username);
       setUsernameDraft(payload.profile.username);
       applyCloudPayload(payload, setReminders, setHistory, payload.profile.username);
+      void removeLegacyDemoCloudData(payload.token, payload);
       window.localStorage.setItem("hover-paired", "true");
       setPhase("planner");
     } catch (error) {
@@ -515,6 +461,7 @@ export default function Prototype() {
         window.localStorage.setItem("hover-username", payload.profile.username);
       }
       applyCloudPayload(payload, setReminders, setHistory, syncedUsername);
+      void removeLegacyDemoCloudData(token, payload);
     } catch {
       // Offline-first: local data remains usable until the next successful sync.
     }
@@ -864,8 +811,8 @@ export default function Prototype() {
               <img src="/assets/hover/icon.png" alt="" className="device-icon" draggable={false} />
             </button>
             <div className="device-copy">
-              <strong>{window.localStorage.getItem("hover-desktop") || DEFAULT_DESKTOP}</strong>
-              <span><DotFilledIcon /> Windows · Online</span>
+              <strong>{username ? `@${username}` : "Your planner"}</strong>
+              <span><DotFilledIcon /> {mobileDeviceName()} · {cloudToken ? "Synced" : "On device"}</span>
             </div>
             <button className="glass-icon-button" aria-label="Open settings" onClick={() => setSettingsOpen(true)}>
               <GearIcon />
@@ -937,13 +884,19 @@ export default function Prototype() {
               <section className="calendar-shell" aria-label={`${weekdayLong(selectedDate)} calendar`}>
                 <div className="calendar-grid" style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}>
                   {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index).map((hour) => (
-                    <div className={`hour-row ${selectedOffset === 0 && hour === 8 ? "hour-row-now" : ""}`} style={{ top: (hour - START_HOUR) * HOUR_HEIGHT }} key={hour}>
+                    <div className={`hour-row ${selectedOffset === 0 && hour === currentHour ? "hour-row-now" : ""}`} style={{ top: (hour - START_HOUR) * HOUR_HEIGHT }} key={hour}>
                       <span>{formatHour(hour)}</span>
                     </div>
                   ))}
 
                   {showNowLine ? (
-                    <div className="now-line" style={{ top: topForTime(currentTimeKey) }} aria-label={`Current time ${formatTime(currentTimeKey)}`}>
+                    <div
+                      className="now-line"
+                      data-testid="now-line"
+                      data-now={now.toISOString()}
+                      style={{ top: currentTimePosition }}
+                      aria-label={`Current time ${formatTime(currentTimeKey)}`}
+                    >
                       <span>{formatTime(currentTimeKey)}</span>
                     </div>
                   ) : null}
@@ -973,16 +926,23 @@ export default function Prototype() {
                         </button>
                         <button
                           className="reminder-main"
-                          aria-label={`${reminder.title}, hold to drag or tap to edit`}
-                          onPointerDown={(event) => beginHold(reminder, event)}
-                          onPointerMove={moveHeldReminder}
-                          onPointerUp={(event) => endHold(reminder, event)}
-                          onPointerCancel={(event) => endHold(reminder, event)}
+                          aria-label={`${reminder.title}, tap to edit`}
+                          onClick={() => openReminder(reminder)}
                         >
                           <span className="reminder-copy">
                             <strong>{reminder.title}</strong>
                             <small>{formatTime(reminder.start)} – {formatTime(reminder.end)}</small>
                           </span>
+                        </button>
+                        <button
+                          className="drag-control"
+                          data-scroll-drag="ignore"
+                          aria-label={`Hold to move ${reminder.title}`}
+                          onPointerDown={(event) => beginHold(reminder, event)}
+                          onPointerMove={moveHeldReminder}
+                          onPointerUp={(event) => endHold(reminder, event)}
+                          onPointerCancel={(event) => endHold(reminder, event)}
+                        >
                           <DragHandleDots2Icon className="drag-grip" />
                         </button>
                       </motion.article>
@@ -1071,7 +1031,7 @@ export default function Prototype() {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         title="HOVER settings"
-        description={`${DEFAULT_DESKTOP} is connected to this phone.`}
+        description={`${username ? `@${username}` : "Your profile"} · ${mobileDeviceName()}`}
         snap={0.72}
       >
         <div className="settings-list">
@@ -1208,6 +1168,14 @@ function ScannerScreen({
   busy: boolean;
 }) {
   const [code, setCode] = useState("");
+  const connectCode = () => {
+    const normalized = normalizePairCode(code);
+    if (normalized.length === 6 && !busy) onPair(normalized);
+  };
+  const submitCode = (event: FormEvent) => {
+    event.preventDefault();
+    connectCode();
+  };
   return (
     <MobileScroll className="app-screen onboarding-scroll">
       <main className="hover-stage scanner-screen">
@@ -1226,14 +1194,27 @@ function ScannerScreen({
         <button className="primary-action" onClick={onStart} disabled={busy}><CameraIcon /> Start in-app scanner</button>
         <small className="scanner-native-hint">On iPhone, you can also scan the desktop QR with the Camera app to open HOVER securely.</small>
         <div className="pair-divider"><span>or use the pairing code</span></div>
-        <KeyboardInput
-          className="pair-code-input"
-          value={code}
-          onChange={(event) => setCode(event.target.value.toUpperCase().slice(0, 6))}
-          placeholder="ABC123"
-          aria-label="Pairing code"
-        />
-        <button className="secondary-action" disabled={code.length < 6 || busy} onClick={() => onPair(code)}><Link2Icon /> {busy ? "Checking code…" : "Connect with code"}</button>
+        <form className="pair-code-form" onSubmit={submitCode}>
+          <KeyboardInput
+            className="pair-code-input"
+            value={code}
+            onChange={(event) => setCode(normalizePairCode(event.target.value))}
+            placeholder="ABC123"
+            aria-label="Pairing code"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            enterKeyHint="go"
+            inputMode="text"
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              connectCode();
+            }}
+          />
+          <button className="secondary-action" type="submit" disabled={normalizePairCode(code).length < 6 || busy}>
+            <Link2Icon /> {busy ? "Checking code…" : "Connect with code"} <ChevronRightIcon />
+          </button>
+        </form>
       </main>
     </MobileScroll>
   );
@@ -1449,16 +1430,13 @@ function loadReminders() {
     const saved = window.localStorage.getItem("hover-reminders");
     if (!saved) return initialReminders;
     const parsed = JSON.parse(saved) as Reminder[];
-    const demoIds = new Set(initialReminders.map((reminder) => reminder.id));
-    const isLegacyDemo = parsed.length === initialReminders.length && parsed.every(
-      (reminder) => demoIds.has(reminder.id) && reminder.dateKey === "2026-08-15",
-    );
-    return parsed.map((reminder) => ({
-      ...reminder,
-      dateKey: isLegacyDemo ? BASE_DATE_KEY : reminder.dateKey,
-      top: topForTime(reminder.start),
-      height: heightForTimes(reminder.start, reminder.end),
-    }));
+    return parsed
+      .filter((reminder) => !isLegacyDemoReminder(reminder.id))
+      .map((reminder) => ({
+        ...reminder,
+        top: topForTime(reminder.start),
+        height: heightForTimes(reminder.start, reminder.end),
+      }));
   } catch {
     return initialReminders;
   }
@@ -1467,10 +1445,21 @@ function loadReminders() {
 function loadHistory(): CompletedReminder[] {
   try {
     const saved = window.localStorage.getItem("hover-completed-history");
-    return saved ? (JSON.parse(saved) as CompletedReminder[]) : [];
+    return saved
+      ? (JSON.parse(saved) as CompletedReminder[]).filter((item) => !isLegacyDemoCompletion(item))
+      : [];
   } catch {
     return [];
   }
+}
+
+function isLegacyDemoReminder(id: string) {
+  return LEGACY_DEMO_REMINDER_IDS.has(id);
+}
+
+function isLegacyDemoCompletion(item: Pick<CompletedReminder, "id" | "reminderId">) {
+  const reminderId = item.reminderId || item.id.split(":")[0];
+  return isLegacyDemoReminder(reminderId);
 }
 
 function normalizeUsername(value: string) {
@@ -1511,7 +1500,7 @@ function mobilePlatform() {
 }
 
 function mobileDeviceName() {
-  return mobilePlatform() === "android" ? "HOVER Android" : "HOVER iPhone";
+  return mobilePlatform() === "android" ? "Android phone" : "iPhone";
 }
 
 function supportsWebPush() {
@@ -1615,15 +1604,34 @@ function applyCloudPayload(
   setHistory: (items: CompletedReminder[]) => void,
   username: string,
 ) {
-  const cloudHistory = payload.history?.map((item) => cloudCompletionToUi(item, username));
+  const cloudHistory = payload.history
+    ?.map((item) => cloudCompletionToUi(item, username))
+    .filter((item) => !isLegacyDemoCompletion(item));
   if (payload.reminders) {
     const deletedIds = new Set(payload.deletedReminderIds || []);
     const completedKeys = new Set((cloudHistory || []).map((item) => `${item.reminderId}:${item.dateKey}`));
     setReminders(payload.reminders
       .map((item) => cloudReminderToUi(item))
+      .filter((item) => !isLegacyDemoReminder(item.id))
       .filter((item) => !deletedIds.has(item.id) && !completedKeys.has(`${item.id}:${item.dateKey}`)));
   }
   if (cloudHistory) setHistory(cloudHistory);
+}
+
+async function removeLegacyDemoCloudData(token: string, payload: CloudSyncPayload) {
+  const legacyReminderIds = (payload.reminders || [])
+    .map((item) => String(item.id || ""))
+    .filter(isLegacyDemoReminder);
+  const legacyCompletionIds = (payload.history || [])
+    .map((item) => ({ id: String(item.id || ""), reminderId: String(item.reminderId || "") }))
+    .filter(isLegacyDemoCompletion)
+    .map((item) => item.id)
+    .filter(Boolean);
+
+  await Promise.allSettled([
+    ...legacyReminderIds.map((id) => cloudRequest(`/api/reminders/${encodeURIComponent(id)}`, { method: "DELETE", token })),
+    ...legacyCompletionIds.map((id) => cloudRequest(`/api/completions/${encodeURIComponent(id)}`, { method: "DELETE", token })),
+  ]);
 }
 
 function cloudReminderToUi(item: Record<string, unknown>): Reminder {
@@ -1806,6 +1814,11 @@ function formatTime(value: string) {
 function topForTime(value: string) {
   const [hour, minute] = value.split(":").map(Number);
   return clamp(((hour - START_HOUR) * 60 + minute) / 60 * HOUR_HEIGHT, 0, (END_HOUR - START_HOUR) * HOUR_HEIGHT - 48);
+}
+
+function topForDateTime(value: Date) {
+  const elapsedMinutes = (value.getHours() - START_HOUR) * 60 + value.getMinutes() + value.getSeconds() / 60;
+  return clamp(elapsedMinutes / 60 * HOUR_HEIGHT, 0, (END_HOUR - START_HOUR) * HOUR_HEIGHT - 1);
 }
 
 function heightForTimes(start: string, end: string) {
