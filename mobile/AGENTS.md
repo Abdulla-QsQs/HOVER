@@ -21,6 +21,7 @@
 - The public install address must be HOVER-branded and must not expose a personal ChatGPT Sites namespace. The canonical free deployment is `https://hover-reminder.pages.dev/`.
 - A first launch must start with an empty planner and empty completion history. Never seed sample reminders or demo completions into local or cloud data; permanently clean the four legacy demo IDs (`morning-focus`, `plan-launch`, `mobile-pairing`, `evening-walk`) when encountered.
 - Pairing must work through continuous camera QR decoding on iOS and Android even when the browser lacks `BarcodeDetector`. The six-character fallback is a real submit form with a visible action and a native keyboard Go/Enter path.
+- Keep the QR decoder's blob worker allowed by the production Content Security Policy. Phone API writes must cross the neutral proxy as bounded buffered JSON, and profile claims must be retry-safe with the same client claim key.
 - The paired planner header is user-owned: lead with `@username` and the current phone kind/status. Do not expose developer names, test fixtures, hardcoded PC names, or raw Windows hostnames in the primary mobile UI.
 - Keep the day timeline vertically scrollable at a readable hour scale. Ordinary swipes over reminder content scroll the calendar; only the dedicated drag handle owns hold-to-move. The current-time line and active hour refresh while the app stays open and immediately after focus, visibility, or page restoration.
 

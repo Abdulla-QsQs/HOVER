@@ -86,6 +86,7 @@ type CompletedReminder = {
 type PendingPair = {
   code: string;
   secret?: string;
+  claimKey: string;
 };
 
 type CloudSyncPayload = {
@@ -160,7 +161,9 @@ export default function Prototype() {
   const [notice, setNotice] = useState("");
   const [scannerStatus, setScannerStatus] = useState("Ready to scan your desktop code");
   const [recoveryCode, setRecoveryCode] = useState("");
-  const [pendingPair, setPendingPair] = useState<PendingPair | null>(() => requestedPair.code ? requestedPair : null);
+  const [pendingPair, setPendingPair] = useState<PendingPair | null>(() => requestedPair.code
+    ? { ...requestedPair, claimKey: pairClaimKey(requestedPair.code) }
+    : null);
   const [cloudToken, setCloudToken] = useState(() => window.localStorage.getItem("hover-cloud-token") || "");
   const [savedRecoveryCode, setSavedRecoveryCode] = useState(() => window.localStorage.getItem("hover-recovery-code") || "");
   const [cloudBusy, setCloudBusy] = useState(false);
@@ -272,7 +275,7 @@ export default function Prototype() {
     setScannerStatus("Checking the secure pairing session…");
     try {
       await cloudRequest(`/api/pair/inspect?code=${encodeURIComponent(code)}`);
-      setPendingPair({ code, secret });
+      setPendingPair({ code, secret, claimKey: pairClaimKey(code) });
       stopCamera();
       keyboard.hide();
       setScannerStatus("HOVER desktop found. Continue to pair.");
@@ -379,10 +382,12 @@ export default function Prototype() {
           body: JSON.stringify({
             code: pendingPair.code,
             secret: pendingPair.secret,
+            claimKey: pendingPair.claimKey,
             username: normalized,
             kind: mobilePlatform(),
             deviceName: mobileDeviceName(),
           }),
+          retries: 1,
         }) as CloudSyncPayload;
         if (!payload.token) throw new Error("The pairing token was not returned.");
         persistCloudSession(payload);
@@ -396,6 +401,7 @@ export default function Prototype() {
         if (payload.recoveryCode) setSavedRecoveryCode(payload.recoveryCode);
         applyCloudPayload(payload, setReminders, setHistory, normalized);
         void removeLegacyDemoCloudData(payload.token, payload);
+        window.localStorage.removeItem(pairClaimStorageKey(pendingPair.code));
         setPendingPair(null);
         window.history.replaceState({}, "", "/?screen=planner");
       } else if (cloudToken) {
@@ -1577,15 +1583,45 @@ async function enablePushForToken(token: string, publicKey: string) {
 
 async function cloudRequest(
   pathname: string,
-  options: RequestInit & { token?: string } = {},
+  options: RequestInit & { token?: string; retries?: number } = {},
 ): Promise<Record<string, unknown>> {
+  const { token, retries = 0, ...requestOptions } = options;
   const headers = new Headers(options.headers);
   if (options.body) headers.set("content-type", "application/json");
-  if (options.token) headers.set("authorization", `Bearer ${options.token}`);
-  const response = await fetch(pathname, { ...options, headers });
+  if (token) headers.set("authorization", `Bearer ${token}`);
+  let response: Response;
+  try {
+    response = await fetch(pathname, { ...requestOptions, headers });
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, 650));
+      return cloudRequest(pathname, { ...requestOptions, headers, token, retries: retries - 1 });
+    }
+    throw new Error("HOVER could not reach the secure cloud. Check your connection and tap Continue again.", { cause: error });
+  }
   const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
   if (!response.ok) throw new Error(typeof payload.error === "string" ? payload.error : `HOVER cloud returned ${response.status}.`);
   return payload;
+}
+
+function pairClaimStorageKey(code: string) {
+  return `hover-pair-claim-${normalizePairCode(code)}`;
+}
+
+function pairClaimKey(code: string) {
+  const storageKey = pairClaimStorageKey(code);
+  const saved = window.localStorage.getItem(storageKey) || "";
+  if (/^[A-Za-z0-9_-]{43}$/.test(saved)) return saved;
+  const values = crypto.getRandomValues(new Uint8Array(32));
+  const created = bytesToBase64Url(values);
+  window.localStorage.setItem(storageKey, created);
+  return created;
+}
+
+function bytesToBase64Url(values: Uint8Array) {
+  let binary = "";
+  values.forEach((value) => { binary += String.fromCharCode(value); });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function persistCloudSession(payload: CloudSyncPayload) {

@@ -1,6 +1,6 @@
 import { sendPushNotification, topicFromString, WebPushError } from "@mmmike/web-push/send";
 
-const API_VERSION = "2026-08-21.2";
+const API_VERSION = "2026-08-21.3";
 const PAIR_TTL_MS = 10 * 60 * 1000;
 const TOKEN_BYTES = 32;
 const PAIR_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -35,6 +35,7 @@ const SCHEMA = [
     status TEXT NOT NULL,
     user_id TEXT,
     desktop_token TEXT,
+    claim_key_hash TEXT,
     created_at TEXT NOT NULL,
     expires_at TEXT NOT NULL,
     claimed_at TEXT,
@@ -214,18 +215,35 @@ async function handleApi(request, env, url) {
     const body = await readJson(request);
     const code = normalizePairCode(body.code);
     const username = normalizeUsername(body.username);
+    const claimKey = normalizeClaimKey(body.claimKey);
     if (!code || !username) return json({ error: "Enter a valid pairing code and username." }, 400);
     const session = await db.prepare("SELECT * FROM pair_sessions WHERE code = ?").bind(code).first();
     if (!session || isExpired(session.expires_at)) return json({ error: "That pairing code expired or does not exist." }, 404);
-    if (session.status !== "pending") return json({ error: "That pairing code has already been used." }, 409);
+    if (session.status !== "pending") {
+      if (!claimKey || !session.claim_key_hash || !(await safeHashMatch(claimKey, session.claim_key_hash))) {
+        return json({ error: "That pairing code has already been used." }, 409);
+      }
+      const profile = await db.prepare("SELECT id, username, created_at, updated_at FROM users WHERE id = ?").bind(session.user_id).first();
+      if (!profile) return json({ error: "That pairing profile is no longer available." }, 410);
+      const credentials = await credentialsForPairClaim(code, claimKey);
+      return json({
+        token: credentials.mobileToken,
+        recoveryCode: credentials.recoveryCode,
+        desktop: { name: session.desktop_name, platform: session.platform },
+        profile: mapProfile(profile),
+        ...(await readSync(db, session.user_id)),
+      });
+    }
     if (body.secret && !(await safeHashMatch(String(body.secret), session.secret_hash))) return json({ error: "The QR pairing secret is invalid." }, 403);
     const existing = await db.prepare("SELECT id FROM users WHERE username = ? COLLATE NOCASE").bind(username).first();
     if (existing) return json({ error: "That username already exists. Use its recovery code instead.", code: "USERNAME_TAKEN" }, 409);
 
     const now = new Date().toISOString();
     const userId = crypto.randomUUID();
-    const recoveryCode = createRecoveryCode();
-    const mobileToken = randomToken(TOKEN_BYTES);
+    const credentials = claimKey
+      ? await credentialsForPairClaim(code, claimKey)
+      : { recoveryCode: createRecoveryCode(), mobileToken: randomToken(TOKEN_BYTES) };
+    const { recoveryCode, mobileToken } = credentials;
     const desktopToken = randomToken(TOKEN_BYTES);
     const mobileDeviceId = crypto.randomUUID();
     const desktopDeviceId = crypto.randomUUID();
@@ -239,8 +257,8 @@ async function handleApi(request, env, url) {
         .bind(mobileDeviceId, userId, mobileKind, mobileName, await sha256(mobileToken), now, now),
       db.prepare("INSERT INTO devices (id, user_id, kind, name, token_hash, created_at, last_seen) VALUES (?, ?, 'windows', ?, ?, ?, ?)")
         .bind(desktopDeviceId, userId, session.desktop_name, await sha256(desktopToken), now, now),
-      db.prepare("UPDATE pair_sessions SET status = 'paired', user_id = ?, desktop_token = ?, claimed_at = ? WHERE code = ? AND status = 'pending'")
-        .bind(userId, desktopToken, now, code),
+      db.prepare("UPDATE pair_sessions SET status = 'paired', user_id = ?, desktop_token = ?, claim_key_hash = ?, claimed_at = ? WHERE code = ? AND status = 'pending'")
+        .bind(userId, desktopToken, claimKey ? await sha256(claimKey) : null, now, code),
     ]);
 
     return json({
@@ -742,6 +760,16 @@ function createRecoveryCode() {
   return `HVR-${group()}-${group()}-${group()}`;
 }
 
+async function credentialsForPairClaim(code, claimKey) {
+  const mobileBytes = await sha256Bytes(`hover-mobile-token\n${code}\n${claimKey}`);
+  const recoveryBytes = await sha256Bytes(`hover-recovery-code\n${code}\n${claimKey}`);
+  const recoveryCharacters = Array.from(recoveryBytes.slice(0, 12), (value) => PAIR_ALPHABET[value % PAIR_ALPHABET.length]);
+  return {
+    mobileToken: bytesToBase64Url(mobileBytes),
+    recoveryCode: `HVR-${recoveryCharacters.slice(0, 4).join("")}-${recoveryCharacters.slice(4, 8).join("")}-${recoveryCharacters.slice(8, 12).join("")}`,
+  };
+}
+
 function randomToken(bytes) {
   const values = new Uint8Array(bytes);
   crypto.getRandomValues(values);
@@ -755,9 +783,16 @@ function randomNumber(max) {
 }
 
 async function sha256(value) {
+  return Array.from(await sha256Bytes(value), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Bytes(value) {
   const bytes = new TextEncoder().encode(String(value));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+}
+
+function bytesToBase64Url(values) {
+  return btoa(String.fromCharCode(...values)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 async function safeHashMatch(value, expectedHash) {
@@ -796,6 +831,11 @@ function normalizeUsername(value) {
 
 function normalizePairCode(value) {
   return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+}
+
+function normalizeClaimKey(value) {
+  const normalized = String(value || "");
+  return validBase64Url(normalized, 43, 43) ? normalized : "";
 }
 
 function normalizeRecoveryCode(value) {

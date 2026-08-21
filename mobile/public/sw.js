@@ -1,4 +1,4 @@
-const CACHE_NAME = "hover-mobile-v4";
+const CACHE_NAME = "hover-mobile-v5";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",

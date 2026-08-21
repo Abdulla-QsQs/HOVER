@@ -1,5 +1,12 @@
 # Changelog
 
+## Mobile 0.3.2 - Pairing recovery
+
+- Allowed the bundled QR decoder's isolated blob worker so the iPhone camera can recognize desktop pairing codes.
+- Buffered small phone API requests and responses through the neutral Pages proxy to prevent dropped Safari profile submissions.
+- Added retry-safe pairing claims: a repeated username submission returns the same phone token and recovery code instead of stranding the session.
+- Replaced raw Safari `Load failed` errors with a clear connection message and one automatic retry.
+
 ## Mobile 0.3.1 - Reliable pairing and planner access
 
 - Added an iOS-compatible continuous QR decoder instead of relying on the unavailable Safari `BarcodeDetector` API.

@@ -45,4 +45,32 @@ test("static HOVER assets receive standalone-app security headers", async () => 
   assert.equal(await response.text(), "HOVER");
   assert.equal(response.headers.get("x-frame-options"), "DENY");
   assert.match(response.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+  assert.match(response.headers.get("content-security-policy"), /worker-src 'self' blob:/);
+});
+
+test("iPhone JSON writes are buffered before forwarding and returning", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = async (_input, init) => {
+    assert.ok(init.body instanceof ArrayBuffer);
+    assert.equal(new Headers(init.headers).has("content-length"), false);
+    const body = JSON.parse(new TextDecoder().decode(init.body));
+    assert.equal(body.username, "phone_user");
+    return Response.json({ profile: { username: body.username }, token: "phone-token" }, { status: 201 });
+  };
+
+  const response = await worker.fetch(
+    new Request("https://hover-reminder.pages.dev/api/pair/claim", {
+      method: "POST",
+      headers: { "content-type": "application/json", "user-agent": "Mobile Safari" },
+      body: JSON.stringify({ code: "ABC123", username: "phone_user" }),
+    }),
+    { HOVER_CLOUD_ORIGIN: upstreamOrigin, ASSETS: { fetch: () => new Response("asset") } },
+  );
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), { profile: { username: "phone_user" }, token: "phone-token" });
 });

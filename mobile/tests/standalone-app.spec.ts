@@ -37,12 +37,34 @@ test("production phone runtime is edge-to-edge and removes simulator chrome", as
   await expect(page.locator(".device-copy span")).toContainText("iPhone · On device");
 });
 
-test("manual pairing submits from the phone keyboard and reaches notification setup", async ({ page }) => {
+test("manual pairing submits from the phone keyboard and retries a dropped profile request", async ({ page }) => {
+  const claimKeys: string[] = [];
+  let claimAttempts = 0;
   await page.route("**/api/pair/inspect?code=ABC123", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ code: "ABC123", desktopName: "PRIVATE-HOSTNAME" }),
+    });
+  });
+  await page.route("**/api/pair/claim", async (route) => {
+    claimAttempts += 1;
+    const body = route.request().postDataJSON();
+    claimKeys.push(body.claimKey);
+    if (claimAttempts === 1) {
+      await route.abort("connectionreset");
+      return;
+    }
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        token: "phone-token",
+        recoveryCode: "HVR-ABCD-EFGH-JKLM",
+        profile: { id: "phone-user", username: body.username, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+        reminders: [],
+        history: [],
+      }),
     });
   });
   await page.setViewportSize({ width: 393, height: 852 });
@@ -54,6 +76,14 @@ test("manual pairing submits from the phone keyboard and reaches notification se
   await code.press("Enter");
   await expect(page.getByRole("heading", { name: "Let HOVER reach you on time." })).toBeVisible();
   await expect(page.getByText("PRIVATE-HOSTNAME")).toHaveCount(0);
+  await page.getByRole("button", { name: "Maybe later" }).click();
+  await page.getByRole("textbox", { name: "Choose a HOVER username" }).fill("phone_user");
+  await page.getByRole("button", { name: "Continue to HOVER" }).click();
+  await expect(page.locator(".device-copy strong")).toHaveText("@phone_user");
+  expect(claimAttempts).toBe(2);
+  expect(claimKeys).toHaveLength(2);
+  expect(claimKeys[0]).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  expect(claimKeys[1]).toBe(claimKeys[0]);
 });
 
 test("legacy sample reminders and their completion streak are removed", async ({ page }) => {

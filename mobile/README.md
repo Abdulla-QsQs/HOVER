@@ -22,6 +22,7 @@ Canonical install address: **https://hover-reminder.pages.dev/**
 - Edge-to-edge production runtime with the real phone status bar, keyboard, safe areas, scrolling, and touch behavior. The framed device simulator is limited to desktop QA.
 - Continuous iOS/Android QR decoding with a six-character Go/Enter fallback, empty first-run planner data, a vertically scrollable readable day timeline, and a live current-time line.
 - User-owned planner identity (`@username` plus the current phone type) with automatic removal of the old sample reminder and completion records.
+- Retry-safe profile creation and a buffered phone-to-cloud transport prevent a brief iPhone connection drop from consuming the pairing session.
 - Standards-based Web Push subscriptions, timezone-aware server scheduling, encrypted delivery, retries, deduplication, expired-device cleanup, and an in-app test notification.
 
 The in-app scanner bundles a continuous QR decoder that works without Safari's missing `BarcodeDetector` API and always provides a six-character Go/Enter fallback. iPhone users can also scan the desktop QR with the native Camera app, which opens the signed pairing URL directly. Username, planner state, and completion history remain available locally while a paired profile syncs them through the D1 backend.
