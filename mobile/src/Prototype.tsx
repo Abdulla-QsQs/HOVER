@@ -8,6 +8,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DesktopIcon,
+  DownloadIcon,
   DotFilledIcon,
   DragHandleDots2Icon,
   GearIcon,
@@ -31,6 +32,18 @@ import { BottomSheet, Carousel, KeyboardInput, MobileScroll, useKeyboard } from 
 type Phase = "splash" | "welcome" | "scanner" | "restore" | "permission" | "username" | "planner";
 type PlannerView = "planner" | "profile";
 type ReminderColor = "sky" | "violet" | "mint" | "coral" | "sun";
+type PushState = "unsupported" | "off" | "ready" | "enabling" | "enabled" | "denied" | "error";
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
+type StoredPushSubscription = {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys: { p256dh: string; auth: string };
+};
 
 type Reminder = {
   id: string;
@@ -199,6 +212,10 @@ export default function Prototype() {
   const [cloudBusy, setCloudBusy] = useState(false);
   const [cloudError, setCloudError] = useState("");
   const [compactPreview, setCompactPreview] = useState(false);
+  const [vapidPublicKey, setVapidPublicKey] = useState("");
+  const [pushState, setPushState] = useState<PushState>(() => initialPushState());
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(() => isStandaloneApp());
   const [draft, setDraft] = useState<ReminderDraft>(() => emptyDraft(dateKey(BASE_DATE)));
 
   const selectedDate = useMemo(() => addDays(BASE_DATE, selectedOffset), [selectedOffset]);
@@ -232,6 +249,24 @@ export default function Prototype() {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     }
+    void cloudRequest("/api/push/config").then((payload) => {
+      if (payload.configured && typeof payload.publicKey === "string") setVapidPublicKey(payload.publicKey);
+    }).catch(() => undefined);
+
+    const onInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setInstallPrompt(null);
+    };
+    window.addEventListener("beforeinstallprompt", onInstallPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onInstallPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
   useEffect(() => () => stopCamera(), []);
@@ -339,12 +374,31 @@ export default function Prototype() {
   };
 
   const finishNotificationSetup = async (requestPermission: boolean) => {
-    if (requestPermission && "Notification" in window && Notification.permission === "default") {
+    if (requestPermission) window.localStorage.setItem("hover-push-wanted", "true");
+    if (requestPermission && supportsWebPush()) {
+      setPushState("enabling");
       try {
-        await Notification.requestPermission();
+        const permission = Notification.permission === "default"
+          ? await Notification.requestPermission()
+          : Notification.permission;
+        if (permission === "granted" && vapidPublicKey) {
+          const subscription = await createPushSubscription(vapidPublicKey);
+          window.localStorage.setItem("hover-push-subscription", JSON.stringify(subscription));
+          setPushState(cloudToken ? "enabling" : "ready");
+          if (cloudToken) {
+            await uploadPushSubscription(cloudToken, subscription);
+            setPushState("enabled");
+          }
+        } else if (permission === "denied") {
+          setPushState("denied");
+        } else {
+          setPushState("error");
+        }
       } catch {
-        // The planner remains usable when the preview cannot show an OS prompt.
+        setPushState(Notification.permission === "denied" ? "denied" : "error");
       }
+    } else if (requestPermission) {
+      setPushState("unsupported");
     }
     if (window.localStorage.getItem("hover-username") && !pendingPair) {
       window.localStorage.setItem("hover-paired", "true");
@@ -376,6 +430,12 @@ export default function Prototype() {
         if (!payload.token) throw new Error("The pairing token was not returned.");
         persistCloudSession(payload);
         setCloudToken(payload.token);
+        if (supportsWebPush() && Notification.permission === "granted" && vapidPublicKey) {
+          setPushState("enabling");
+          void enablePushForToken(payload.token, vapidPublicKey)
+            .then(() => setPushState("enabled"))
+            .catch(() => setPushState("error"));
+        }
         if (payload.recoveryCode) setSavedRecoveryCode(payload.recoveryCode);
         if (payload.desktop?.name) window.localStorage.setItem("hover-desktop", payload.desktop.name);
         applyCloudPayload(payload, setReminders, setHistory, normalized);
@@ -414,6 +474,12 @@ export default function Prototype() {
       if (!payload.token || !payload.profile) throw new Error("The recovery response was incomplete.");
       persistCloudSession(payload);
       setCloudToken(payload.token);
+      if (supportsWebPush() && Notification.permission === "granted" && vapidPublicKey) {
+        setPushState("enabling");
+        void enablePushForToken(payload.token, vapidPublicKey)
+          .then(() => setPushState("enabled"))
+          .catch(() => setPushState("error"));
+      }
       setUsername(payload.profile.username);
       setUsernameDraft(payload.profile.username);
       applyCloudPayload(payload, setReminders, setHistory, payload.profile.username);
@@ -462,6 +528,76 @@ export default function Prototype() {
     // Sync is intentionally keyed to session and screen, not local edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, cloudToken]);
+
+  useEffect(() => {
+    if (phase !== "planner" || !cloudToken || !vapidPublicKey || !supportsWebPush()) return;
+    if (Notification.permission !== "granted" || window.localStorage.getItem("hover-push-wanted") !== "true") return;
+    setPushState("enabling");
+    void enablePushForToken(cloudToken, vapidPublicKey)
+      .then(() => setPushState("enabled"))
+      .catch(() => setPushState(Notification.permission === "denied" ? "denied" : "error"));
+  }, [phase, cloudToken, vapidPublicKey]);
+
+  const enableNotifications = async () => {
+    if (!supportsWebPush()) {
+      setPushState("unsupported");
+      showNotice("Web Push is unavailable on this browser");
+      return;
+    }
+    if (!vapidPublicKey || !cloudToken) {
+      setPushState("error");
+      showNotice("Pair HOVER before enabling notifications");
+      return;
+    }
+    setPushState("enabling");
+    window.localStorage.setItem("hover-push-wanted", "true");
+    try {
+      const permission = Notification.permission === "default"
+        ? await Notification.requestPermission()
+        : Notification.permission;
+      if (permission !== "granted") {
+        setPushState(permission === "denied" ? "denied" : "off");
+        showNotice("Notifications were not enabled");
+        return;
+      }
+      await enablePushForToken(cloudToken, vapidPublicKey);
+      setPushState("enabled");
+      showNotice("Background notifications enabled");
+    } catch {
+      setPushState("error");
+      showNotice("HOVER could not enable notifications");
+    }
+  };
+
+  const sendTestNotification = async () => {
+    if (!cloudToken || pushState !== "enabled") return;
+    setPushState("enabling");
+    try {
+      await cloudRequest("/api/push/test", { method: "POST", token: cloudToken });
+      setPushState("enabled");
+      showNotice("Test notification sent");
+    } catch {
+      setPushState("error");
+      showNotice("The test notification could not be delivered");
+    }
+  };
+
+  const installHover = async () => {
+    if (installed) {
+      showNotice("HOVER is already installed");
+      return;
+    }
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice.outcome === "accepted") setInstalled(true);
+      setInstallPrompt(null);
+      return;
+    }
+    showNotice(/iphone|ipad|ipod/i.test(navigator.userAgent)
+      ? "Use Share, then Add to Home Screen"
+      : "Use your browser menu, then Install app");
+  };
 
   const openNewReminder = () => {
     keyboard.hide();
@@ -924,13 +1060,24 @@ export default function Prototype() {
         onOpenChange={setSettingsOpen}
         title="HOVER settings"
         description={`${DEFAULT_DESKTOP} is connected to this phone.`}
-        snap={0.58}
+        snap={0.72}
       >
         <div className="settings-list">
           <label className="settings-row">
             <span><Link2Icon /><span><strong>Next reminder island</strong><small>Show the compact floating reminder</small></span></span>
             <input type="checkbox" checked={compactPreview} onChange={(event) => setCompactPreview(event.target.checked)} />
           </label>
+          <div className="settings-row recovery-row">
+            <span><BellIcon /><span><strong>Reminder notifications</strong><small>{pushStateLabel(pushState)}</small></span></span>
+            <button
+              onClick={() => pushState === "enabled" ? void sendTestNotification() : void enableNotifications()}
+              disabled={pushState === "enabling" || pushState === "unsupported"}
+            >{pushState === "enabled" ? "Test" : pushState === "enabling" ? "Working" : "Enable"}</button>
+          </div>
+          <div className="settings-row recovery-row">
+            <span><DownloadIcon /><span><strong>Home Screen app</strong><small>{installed ? "Installed as HOVER" : "Install the standalone phone app"}</small></span></span>
+            <button onClick={() => void installHover()} disabled={installed}>{installed ? "Added" : "Install"}</button>
+          </div>
           <div className="settings-row recovery-row">
             <span><ReloadIcon /><span><strong>Recovery code</strong><small>{savedRecoveryCode || "Available after secure pairing"}</small></span></span>
             <button onClick={() => {
@@ -945,10 +1092,23 @@ export default function Prototype() {
             <span><CalendarIcon /><span><strong>Completed history</strong><small>{history.length} reminders saved for @{username || "username"}</small></span></span>
             <ChevronRightIcon />
           </button>
-          <button className="settings-row unpair-row" onClick={() => {
+          <button className="settings-row unpair-row" onClick={async () => {
+            if (cloudToken) {
+              const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.ready.catch(() => null) : null;
+              const subscription = await registration?.pushManager.getSubscription().catch(() => null);
+              await cloudRequest("/api/push/subscriptions", {
+                method: "DELETE",
+                token: cloudToken,
+                body: JSON.stringify({ endpoint: subscription?.endpoint || "" }),
+              }).catch(() => undefined);
+              await subscription?.unsubscribe().catch(() => false);
+            }
             window.localStorage.removeItem("hover-paired");
             window.localStorage.removeItem("hover-cloud-token");
+            window.localStorage.removeItem("hover-push-subscription");
+            window.localStorage.removeItem("hover-push-wanted");
             setCloudToken("");
+            setPushState(initialPushState());
             setPendingPair(null);
             setSettingsOpen(false);
             setPhase("welcome");
@@ -1337,6 +1497,78 @@ function mobileDeviceName() {
   return mobilePlatform() === "android" ? "HOVER Android" : "HOVER iPhone";
 }
 
+function supportsWebPush() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+
+function initialPushState(): PushState {
+  if (!supportsWebPush()) return "unsupported";
+  if (Notification.permission === "denied") return "denied";
+  if (Notification.permission === "granted" && window.localStorage.getItem("hover-push-wanted") === "true") return "ready";
+  return "off";
+}
+
+function isStandaloneApp() {
+  const iosNavigator = navigator as Navigator & { standalone?: boolean };
+  return window.matchMedia("(display-mode: standalone)").matches || iosNavigator.standalone === true;
+}
+
+function pushStateLabel(state: PushState) {
+  return {
+    unsupported: "Unavailable in this browser",
+    off: "Off · enable alarms when HOVER is closed",
+    ready: "Permission granted · finishing connection",
+    enabling: "Connecting securely…",
+    enabled: "On · background delivery is connected",
+    denied: "Blocked in phone notification settings",
+    error: "Needs attention · tap to reconnect",
+  }[state];
+}
+
+function urlBase64ToBytes(value: string) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const binary = window.atob(base64);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function createPushSubscription(publicKey: string): Promise<StoredPushSubscription> {
+  if (!supportsWebPush()) throw new Error("Web Push is unavailable.");
+  const registration = await navigator.serviceWorker.ready;
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToBytes(publicKey),
+    });
+  }
+  const value = subscription.toJSON();
+  if (!value.endpoint || !value.keys?.p256dh || !value.keys?.auth) throw new Error("The phone returned an incomplete push subscription.");
+  return {
+    endpoint: value.endpoint,
+    expirationTime: value.expirationTime,
+    keys: { p256dh: value.keys.p256dh, auth: value.keys.auth },
+  };
+}
+
+async function uploadPushSubscription(token: string, subscription: StoredPushSubscription) {
+  await cloudRequest("/api/push/subscriptions", {
+    method: "POST",
+    token,
+    body: JSON.stringify({
+      subscription,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      userAgent: navigator.userAgent,
+    }),
+  });
+}
+
+async function enablePushForToken(token: string, publicKey: string) {
+  const subscription = await createPushSubscription(publicKey);
+  window.localStorage.setItem("hover-push-subscription", JSON.stringify(subscription));
+  await uploadPushSubscription(token, subscription);
+}
+
 async function cloudRequest(
   pathname: string,
   options: RequestInit & { token?: string } = {},
@@ -1425,6 +1657,7 @@ function writeCloudReminder(token: string, reminder: Reminder) {
       repeat: reminder.repeat || "none",
       alarm: reminder.alarm,
       alarmMinutes: reminder.alarmMinutes || 0,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       updatedAt: reminder.updatedAt || new Date().toISOString(),
     }),
   });

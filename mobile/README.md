@@ -16,7 +16,8 @@ This folder contains the installable mobile PWA prototype for iPhone and Android
 - Optional compact next-reminder island in Settings.
 - iPhone and Pixel 10 preview runtimes.
 - Real expiring QR/manual-code pairing, separate device tokens, recovery restore, cloud usernames, reminder sync, deletion sync, and completed-history sync.
-- Web app manifest, Home Screen icon, app shortcuts, offline shell, and push-notification service-worker handlers.
+- Web app manifest, dedicated install icons, in-app Home Screen control, app shortcuts, and a privacy-safe offline shell.
+- Standards-based Web Push subscriptions, timezone-aware server scheduling, encrypted delivery, retries, deduplication, expired-device cleanup, and an in-app test notification.
 
 The in-app scanner uses the browser's native QR detector when available and always provides a six-character fallback. iPhone users can also scan the desktop QR with the native Camera app, which opens the signed pairing URL directly. Username, planner state, and completion history remain available locally while a paired profile syncs them through the D1 backend.
 
@@ -45,4 +46,4 @@ The final visual QA record is [`design-qa.md`](design-qa.md). App-specific imple
 - iPhone: open the deployed HTTPS site in Safari, choose **Share**, then **Add to Home Screen**.
 - Android: open the deployed HTTPS site in Chrome and choose **Install app**.
 
-Push delivery on iPhone requires the PWA to be installed to the Home Screen and notification permission to be granted. Scheduled Web Push while every HOVER client is closed is not enabled in this beta; the pairing and sync backend does not claim that guarantee yet.
+Push delivery on iPhone requires the PWA to be installed to the Home Screen and notification permission to be granted. Once the phone shows **On · background delivery is connected**, HOVER can send scheduled reminders through the phone's push service while the browser, mobile PWA, and Windows laptop are closed. Phone Focus, Silent Mode, and notification settings still control sound and visibility.

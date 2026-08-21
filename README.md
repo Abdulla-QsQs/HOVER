@@ -12,11 +12,11 @@ HOVER keeps the day within reach without taking over the desktop. Reminders appe
 
 ## Download
 
-**[Download HOVER for Windows](https://github.com/Abdulla-QsQs/HOVER/releases/latest/download/HOVER-Setup-1.1.0.exe)**
+**[Download HOVER for Windows](https://github.com/Abdulla-QsQs/HOVER/releases/latest/download/HOVER-Setup-1.2.0.exe)**
 
-The direct link downloads `HOVER-Setup-1.1.0.exe`. The guided installer can create Desktop and Start menu shortcuts. Release notes and checksums are available on the [Releases page](https://github.com/Abdulla-QsQs/HOVER/releases/latest).
+The direct link downloads `HOVER-Setup-1.2.0.exe`. The guided installer can create Desktop and Start menu shortcuts. Release notes and checksums are available on the [Releases page](https://github.com/Abdulla-QsQs/HOVER/releases/latest).
 
-> HOVER 1.1.0 is not code-signed. Windows SmartScreen may show an **Unknown publisher** notice; choose **More info → Run anyway** only when you downloaded it from this repository.
+> HOVER 1.2.0 is not code-signed. Windows SmartScreen may show an **Unknown publisher** notice; choose **More info → Run anyway** only when you downloaded it from this repository.
 
 ## Preview
 
@@ -33,7 +33,7 @@ The direct link downloads `HOVER-Setup-1.1.0.exe`. The guided installer can crea
 
 The installable mobile PWA lives in [`mobile/`](mobile/README.md). It preserves the HOVER OLED-glass planner on iPhone and Android and includes the icon splash, secure desktop pairing and recovery, full day timeline, date navigation, add/edit sheet, completion removal, hold-to-drag interactions, and GitHub-style completion history.
 
-The v1.1 backend adds expiring QR sessions, separate device tokens, username and recovery tables, and cross-device reminder/completion sync. Desktop alarms remain native and local. Scheduled Web Push delivery while every HOVER client is closed is a later rollout phase.
+The v1.2 backend adds standards-based Web Push subscriptions, timezone-aware alarm scheduling, encrypted iPhone/Android delivery, retries, deduplication, expired-device cleanup, and test notifications. Windows now starts with the user and remains in the tray after the window closes so local alarms continue running.
 
 **[Open the HOVER mobile companion](https://hover-mobile-companion.abdullahazam1077.chatgpt.site/)**
 
@@ -81,7 +81,7 @@ npm run snapshots
 npm run dist:win
 ```
 
-The Windows installer is written to `dist/HOVER-Setup-1.1.0.exe`. Snapshot generation updates the images under `docs/screenshots/`.
+The Windows installer is written to `dist/HOVER-Setup-1.2.0.exe`. Snapshot generation updates the images under `docs/screenshots/`.
 
 ## Release workflow
 
@@ -89,8 +89,8 @@ The Windows installer is written to `dist/HOVER-Setup-1.1.0.exe`. Snapshot gener
 - `windows-release.yml` builds the NSIS installer on Windows and attaches it to a GitHub release whenever a `v*` tag is pushed. It can also be run manually to verify the installer artifact.
 
 ```powershell
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 ## Privacy

@@ -1,5 +1,11 @@
-const CACHE_NAME = "hover-mobile-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/assets/hover/icon.png", "/assets/hover/starfield.png"];
+const CACHE_NAME = "hover-mobile-v2";
+const APP_SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/assets/hover/icon.png",
+  "/assets/hover/icon-192.png",
+  "/assets/hover/starfield.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -16,27 +22,41 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  if (event.request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+  if (event.request.mode === "navigate") {
+    event.respondWith(fetch(event.request).catch(() => caches.match("/").then((cached) => cached || Response.error())));
+    return;
+  }
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/"))),
+      .catch(() => caches.match(event.request).then((cached) => cached || Response.error())),
   );
 });
 
 self.addEventListener("push", (event) => {
-  const data = event.data?.json?.() || {};
+  let data = {};
+  try {
+    data = event.data?.json?.() || {};
+  } catch {
+    data = { title: "HOVER reminder", body: event.data?.text?.() || "A reminder is ready." };
+  }
   event.waitUntil(
     self.registration.showNotification(data.title || "HOVER reminder", {
       body: data.body || "A reminder is ready.",
       icon: "/assets/hover/icon.png",
-      badge: "/assets/hover/icon.png",
+      badge: "/assets/hover/icon-192.png",
       tag: data.tag || "hover-reminder",
       renotify: true,
+      requireInteraction: true,
+      timestamp: Date.now(),
       data: { url: data.url || "/?screen=planner" },
     }),
   );
@@ -45,5 +65,14 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const target = event.notification.data?.url || "/?screen=planner";
-  event.waitUntil(self.clients.openWindow(target));
+  event.waitUntil((async () => {
+    const targetUrl = new URL(target, self.location.origin).toString();
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const existing = windows.find((client) => new URL(client.url).origin === self.location.origin);
+    if (existing) {
+      await existing.navigate(targetUrl);
+      return existing.focus();
+    }
+    return self.clients.openWindow(targetUrl);
+  })());
 });

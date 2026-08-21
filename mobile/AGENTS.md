@@ -14,6 +14,8 @@
 - Pulling down from the top of the planner reveals the exact HOVER icon as a smoothly spinning, hovering planet; do not redraw or approximate the icon.
 - Ask for a username after pairing/notification setup and before entering the synced planner. Treat it as the future cloud table identity while keeping the offline-first prototype honest.
 - Backward date navigation stops at the earliest date represented by reminder history or scheduled data. Never navigate into dates with no available history.
+- Treat Home Screen installation and Web Push as first-class mobile settings: show a clear installed/available state, a connected notification state, and a direct test action without changing the approved planner hierarchy.
+- Cloud alarms use the reminder's IANA timezone, standards-based encrypted Web Push, deduplication, bounded retries, and expired-subscription cleanup. Never cache API, pairing-secret, or authenticated sync responses in the service worker.
 
 In ChatGPT Work Mode, run `sites-preview start "$PWD"`, open `http://terminal.local:4173/` in the cloud browser, and verify the rendered app and its primary interactions. Keep that preview open and tell the user to inspect it in the cloud browser; do not present the local URL as a user-facing chat link. In Codex Desktop, run the local server yourself, open the preview in the in-app browser, and provide the clickable local URL. Do not deploy to Sites unless the user explicitly asks to share, publish, or deploy. Do not give the user server-start instructions when you can run it.
 

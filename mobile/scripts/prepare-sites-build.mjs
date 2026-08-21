@@ -2,6 +2,7 @@
 import { copyFileSync, cpSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildSync } from "esbuild";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist");
@@ -16,7 +17,16 @@ for (const file of [index, worker, hosting]) {
 
 mkdirSync(path.join(dist, "server"), { recursive: true });
 mkdirSync(path.join(dist, ".openai"), { recursive: true });
-copyFileSync(worker, path.join(dist, "server", "index.js"));
+buildSync({
+  entryPoints: [worker],
+  outfile: path.join(dist, "server", "index.js"),
+  bundle: true,
+  format: "esm",
+  platform: "browser",
+  target: "es2022",
+  minify: false,
+  sourcemap: false,
+});
 copyFileSync(hosting, path.join(dist, ".openai", "hosting.json"));
 if (existsSync(migrations)) cpSync(migrations, path.join(dist, ".openai", "drizzle"), { recursive: true });
 
