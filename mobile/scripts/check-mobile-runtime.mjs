@@ -9,6 +9,14 @@ const lockPath = path.join(root, "mobile-runtime.lock.json");
 const lockedFiles = JSON.parse(readFileSync(lockPath, "utf8"));
 const failures = [];
 
+function hashFile(filePath) {
+  const content = readFileSync(filePath);
+  const stableContent = /\.(?:png|jpe?g|gif|webp|ico)$/i.test(filePath)
+    ? content
+    : Buffer.from(content.toString("utf8").replace(/\r\n/g, "\n"), "utf8");
+  return createHash("sha256").update(stableContent).digest("hex");
+}
+
 for (const [relativePath, expectedHash] of Object.entries(lockedFiles)) {
   const filePath = path.join(root, relativePath);
 
@@ -17,7 +25,7 @@ for (const [relativePath, expectedHash] of Object.entries(lockedFiles)) {
     continue;
   }
 
-  const actualHash = createHash("sha256").update(readFileSync(filePath)).digest("hex");
+  const actualHash = hashFile(filePath);
   if (actualHash !== expectedHash) {
     failures.push(`${relativePath} was modified`);
   }
