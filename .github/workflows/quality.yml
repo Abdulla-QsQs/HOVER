@@ -29,6 +29,9 @@ jobs:
       - name: Install mobile dependencies
         run: npm ci --prefix mobile
 
+      - name: Install scheduler dependencies
+        run: npm ci --prefix scheduler
+
       - name: Check JavaScript
         run: npm test
 
@@ -37,7 +40,13 @@ jobs:
           npm run build --prefix mobile
           npm run test:sites --prefix mobile
 
+      - name: Test push scheduler
+        run: |
+          npm run check --prefix scheduler
+          npm test --prefix scheduler
+
       - name: Audit dependencies
         run: |
           npm audit --audit-level=high
           npm audit --prefix mobile --audit-level=high
+          npm audit --prefix scheduler --audit-level=high

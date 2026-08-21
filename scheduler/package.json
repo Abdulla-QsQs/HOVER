@@ -1,0 +1,14 @@
+{
+  "name": "hover-push-scheduler",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.js",
+    "test": "node --test tests/scheduler.test.mjs",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.125.0"
+  }
+}

@@ -35,20 +35,21 @@ The **Stay on top** switch keeps HOVER visible above other windows. Turn it off 
 
 ## Alarms and notifications
 
-HOVER checks upcoming reminders while it is running. When an alarm is due, Windows displays a native notification and HOVER plays a short tone.
+HOVER checks upcoming reminders in its background tray process. When an alarm is due, Windows displays a native notification and HOVER plays a short tone.
 
-Completed reminders do not trigger alarms. Keep HOVER running for scheduled alarms to fire.
+Completed reminders do not trigger alarms. Closing the HOVER window keeps its tray process active, and the installed app starts with Windows so alarms continue without an open planner window. Choose **Quit HOVER** from the tray menu only when you want to stop local alarms.
 
 ## Pair a phone
 
 On first launch, choose **iPhone** or **Android**. HOVER shows an expiring QR code and a six-character fallback.
 
 1. Scan the QR with the phone Camera app or the HOVER in-app scanner.
-2. Allow notifications if you want mobile alerts.
-3. Choose a HOVER username and save the recovery code.
-4. Wait for the Windows panel to confirm the connection.
+2. Allow notifications, finish pairing, then open **Settings → Reminder notifications** and confirm it says **On · background delivery is connected**.
+3. Use **Test** in that row to verify the phone's push service accepts a background notification.
+4. Choose a HOVER username and save the recovery code.
+5. Wait for the Windows panel to confirm the connection.
 
-Pairing creates separate phone and desktop tokens. HOVER then syncs reminders and completed history in the background. If the network is unavailable, the Windows planner remains usable and retries later.
+Pairing creates separate phone and desktop tokens. HOVER then syncs reminders and completed history in the background. Cloud alarms use each reminder's timezone and are delivered through the paired phone's Web Push subscription even when HOVER clients are closed. If the network is unavailable, the Windows planner remains usable and retries later.
 
 ## Data and privacy
 

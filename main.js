@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, screen, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Notification, screen, shell, Tray } = require('electron');
 const fs = require('node:fs/promises');
 const { existsSync } = require('node:fs');
 const path = require('node:path');
@@ -13,6 +13,8 @@ let boundsAnimationResolve;
 let regularBounds;
 let cloudSyncTimer;
 let cloudSyncPromise;
+let tray;
+let isQuitting = false;
 
 const FULL_WINDOW = { width: 430, height: 620 };
 const ISLAND_WINDOW = { width: 360, height: 82 };
@@ -21,7 +23,7 @@ const CLOUD_BASE_URL = process.env.HOVER_CLOUD_URL || 'https://hover-mobile-comp
 
 const DEFAULT_STATE = {
   reminders: [],
-  settings: { alwaysOnTop: true, islandMode: false },
+  settings: { alwaysOnTop: true, islandMode: false, runInBackground: true, openAtLogin: true },
   cloud: {
     paired: false,
     token: '',
@@ -74,6 +76,9 @@ let state = structuredClone(DEFAULT_STATE);
 
 app.setName('HOVER');
 if (process.platform === 'win32') app.setAppUserModelId(WINDOWS_APP_ID);
+
+const singleInstance = app.requestSingleInstanceLock();
+if (!singleInstance) app.quit();
 
 function localDateKey(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60_000;
@@ -198,6 +203,7 @@ function cloudReminder(reminder) {
     repeat: reminder.repeat,
     alarm: reminder.alarm,
     alarmMinutes: reminder.alarmMinutes,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     updatedAt: reminder.updatedAt || new Date().toISOString()
   };
 }
@@ -320,6 +326,40 @@ async function syncCloud() {
   return cloudSyncPromise;
 }
 
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function createTray() {
+  if (tray || !appIconPath()) return;
+  tray = new Tray(appIconPath());
+  tray.setToolTip('HOVER reminders');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open HOVER', click: showMainWindow },
+    { type: 'separator' },
+    {
+      label: 'Quit HOVER',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]));
+  tray.on('double-click', showMainWindow);
+}
+
+function applyLoginSettings() {
+  if (!app.isPackaged || process.platform !== 'win32') return;
+  app.setLoginItemSettings({
+    openAtLogin: state.settings.openAtLogin !== false,
+    path: process.execPath,
+    args: ['--background'],
+  });
+}
+
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay();
   const initialSize = state.settings.islandMode ? ISLAND_WINDOW : FULL_WINDOW;
@@ -349,12 +389,22 @@ function createWindow() {
   mainWindow.setAlwaysOnTop(state.settings.alwaysOnTop, 'floating');
   if (!state.settings.islandMode) regularBounds = mainWindow.getBounds();
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.once('ready-to-show', () => {
+    if (!process.argv.includes('--background')) mainWindow.show();
+  });
+  mainWindow.on('close', (event) => {
+    if (!isQuitting && state.settings.runInBackground !== false) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
 }
 
 app.whenReady().then(async () => {
   state = await loadState();
+  applyLoginSettings();
   createWindow();
+  createTray();
   alarmTimer = setInterval(checkAlarms, 20_000);
   cloudSyncTimer = setInterval(() => void syncCloud(), 60_000);
   checkAlarms();
@@ -365,10 +415,13 @@ app.whenReady().then(async () => {
   });
 });
 
+app.on('second-instance', showMainWindow);
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin' && state.settings.runInBackground === false) app.quit();
 });
 app.on('before-quit', () => {
+  isQuitting = true;
   clearInterval(alarmTimer);
   clearInterval(cloudSyncTimer);
 });
