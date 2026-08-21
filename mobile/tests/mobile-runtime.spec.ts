@@ -105,7 +105,14 @@ test("keyboard and its attached footer dismiss on the same transition", async ({
 
   await input.click();
   await expect(keyboard).toHaveAttribute("data-visible", "true");
-  await drag(page, footer, 0, 120, 5);
+  const footerBox = await footer.boundingBox();
+  if (!footerBox) throw new Error("Keyboard footer has no bounding box");
+  const dragStartX = footerBox.x + 8;
+  const dragStartY = footerBox.y + 7;
+  await page.mouse.move(dragStartX, dragStartY);
+  await page.mouse.down();
+  await page.mouse.move(dragStartX, dragStartY + 120, { steps: 5 });
+  await page.mouse.up();
   await expect(keyboard).toHaveAttribute("data-visible", "false");
 
   await page.waitForTimeout(100);

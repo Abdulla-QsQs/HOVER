@@ -377,6 +377,8 @@ button {
 .mobile-scroll-native {
   overflow-y: auto;
   overscroll-behavior-y: auto;
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   user-select: auto;
