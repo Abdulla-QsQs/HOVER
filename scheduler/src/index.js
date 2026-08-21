@@ -31,8 +31,7 @@ async function dispatch(env) {
     headers: { authorization: `Bearer ${env.SCHEDULER_SECRET}` },
     signal: AbortSignal.timeout(20_000),
   });
-  const payload = await response.text();
-  return new Response(payload, {
+  return new Response(response.body, {
     status: response.status,
     headers: { "content-type": response.headers.get("content-type") || "application/json; charset=utf-8" },
   });
