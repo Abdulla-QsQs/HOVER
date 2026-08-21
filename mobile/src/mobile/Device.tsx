@@ -50,8 +50,11 @@ type MobileDeviceContextValue = {
 
 const MobileDeviceContext = createContext<MobileDeviceContextValue | null>(null);
 
-export function MobileDeviceProvider({ children }: PropsWithChildren) {
-  const [deviceId, setDeviceId] = useState<MobileDeviceId>("iphone");
+export function MobileDeviceProvider({
+  children,
+  initialDeviceId = "iphone",
+}: PropsWithChildren<{ initialDeviceId?: MobileDeviceId }>) {
+  const [deviceId, setDeviceId] = useState<MobileDeviceId>(initialDeviceId);
   const value = useMemo(
     () => ({ device: mobileDevices[deviceId], deviceId, setDeviceId }),
     [deviceId],

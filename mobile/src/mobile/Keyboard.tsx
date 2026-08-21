@@ -15,6 +15,7 @@ import { mobileAssets } from "./assets";
 import { useMobileDevice } from "./Device";
 
 type KeyboardContextValue = {
+  native: boolean;
   visible: boolean;
   height: number;
   fullHeight: number;
@@ -34,19 +35,23 @@ type KeyboardInputProps = InputHTMLAttributes<HTMLInputElement> & {
 
 const KeyboardContext = createContext<KeyboardContextValue | null>(null);
 
-export function KeyboardProvider({ children }: PropsWithChildren) {
+export function KeyboardProvider({
+  children,
+  native = false,
+}: PropsWithChildren<{ native?: boolean }>) {
   const { device } = useMobileDevice();
   const [visible, setVisible] = useState(false);
   const [dragOffset, setRawDragOffset] = useState(0);
   const [isDragging, setDragging] = useState(false);
   const [focusedElement, setFocusedElement] = useState<HTMLElement | null>(null);
-  const fullHeight = device.geometry.keyboard.height;
+  const fullHeight = native ? 0 : device.geometry.keyboard.height;
   const setDragOffset = (offset: number) => {
     setRawDragOffset(Math.max(0, Math.min(fullHeight, offset)));
   };
 
   const value = useMemo<KeyboardContextValue>(
     () => ({
+      native,
       visible,
       height: visible ? Math.max(0, fullHeight - dragOffset) : 0,
       fullHeight,
@@ -60,7 +65,7 @@ export function KeyboardProvider({ children }: PropsWithChildren) {
         setRawDragOffset(0);
         setDragging(false);
         setFocusedElement(element ?? null);
-        setVisible(true);
+        setVisible(!native);
       },
       hide: () => {
         focusedElement?.blur();
@@ -69,7 +74,7 @@ export function KeyboardProvider({ children }: PropsWithChildren) {
         setVisible(false);
       },
     }),
-    [dragOffset, focusedElement, fullHeight, isDragging, visible],
+    [dragOffset, focusedElement, fullHeight, isDragging, native, visible],
   );
 
   return <KeyboardContext.Provider value={value}>{children}</KeyboardContext.Provider>;
@@ -88,6 +93,16 @@ export function useKeyboard() {
 export function useKeyboardInsets() {
   const keyboard = useKeyboard();
   const { device } = useMobileDevice();
+  if (keyboard.native) {
+    return {
+      keyboardHeight: 0,
+      keyboardFullHeight: 0,
+      keyboardDragging: false,
+      bottomInset: 0,
+      availableHeight: typeof window === "undefined" ? device.geometry.screen.height : window.innerHeight,
+      isKeyboardVisible: false,
+    };
+  }
   const reservesAndroidNavigation = device.platform === "android" && !keyboard.visible;
 
   return {
@@ -215,6 +230,8 @@ export function KeyboardDock() {
   const keyboardTransition = keyboard.isDragging
     ? { duration: 0 }
     : { duration: 0.26, ease: [0.2, 0.8, 0.2, 1] as [number, number, number, number] };
+
+  if (keyboard.native) return null;
 
   return (
     <motion.div

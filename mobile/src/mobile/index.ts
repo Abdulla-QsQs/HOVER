@@ -11,6 +11,7 @@ export {
   useKeyboardInsets,
 } from "./Keyboard";
 export { MobileScroll } from "./MobileScroll";
+export { useMobileRuntimeMode } from "./RuntimeMode";
 export { MobileRuntime } from "./MobileRuntime";
 export { PhoneFrame, useScreenPortal } from "./PhoneFrame";
 export { HomeIndicator, MobileTextField, StatusBar } from "./components";

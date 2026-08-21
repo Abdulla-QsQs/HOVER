@@ -1,65 +1,58 @@
-# HOVER mobile design QA
+# HOVER mobile standalone-runtime design QA
 
 ## Comparison target
 
-- Source visual truth — layout: `docs/design-reference/layout-option-1.png`
-- Source visual truth — treatment: `docs/design-reference/visual-option-3.png`
-- Normalized sources: `docs/design-qa/layout-normalized.png`, `docs/design-qa/visual-normalized.png`
-- Browser-rendered implementation: `docs/design-qa/implementation-final.png`
-- Full browser evidence: `docs/design-qa/full-frame-final.png`
-- State: paired planner home, iPhone, OLED dark theme, Saturday 15 August 2026, four realistic reminders.
-- Viewport: in-app browser `980 × 1180`; app-owned phone screen verified at `393 × 852` CSS px with device scale factor `1`.
-- Source pixels: both generated references are `853 × 1844`; each was downsampled to `393 × 850` for equal-width comparison.
-- Implementation pixels: `393 × 852`; no density resampling.
+- Canonical layout source: `docs/design-reference/layout-option-1.png`
+- Canonical treatment source: `docs/design-reference/visual-option-3.png`
+- Previously verified app-owned planner: `docs/design-qa/implementation-final.png`
+- New production phone runtime: `docs/design-qa/standalone-implementation.png`
+- New onboarding state: `docs/design-qa/standalone-onboarding.png`
+- New add-reminder state: `docs/design-qa/standalone-sheet.png`
+- New completion-history state: `docs/design-qa/standalone-history.png`
+- Combined equal-size planner comparison: `docs/design-qa/standalone-comparison.png`
+- Viewport: `393 × 852` CSS px, device scale factor `1`.
+
+The earlier verified app-owned UI is the fidelity source for this runtime correction. The task intentionally removes template-owned preview chrome on real phones while preserving the HOVER content inside it. Desktop QA can still force the framed iPhone / Pixel shell with `?runtime=preview`; phone QA can force the shipped edge-to-edge shell with `?runtime=native`.
 
 ## Findings
 
-- No actionable P0, P1, or P2 fidelity issues remain.
-- [P3] The app uses the visual-treatment reference's compact system sans for the date instead of the layout reference's serif. This is intentional: the approved direction was option 1's structure with option 3's visual design.
-- [P3] The implementation includes the template-owned live status bar, safe area, and home indicator. These were intentionally preserved and slightly compress the app-owned vertical rhythm compared with the generated references.
+- No actionable P0, P1, or P2 issues remain.
+- [P3] iOS always applies its rounded-square Home Screen mask, so a truly circular app hit area is not available for a free Home Screen PWA. HOVER now precomposes the unchanged circular watercolor artwork on OLED black, removing the visible white tile while keeping the circle intact.
+- [P3] Local browser captures cannot render the physical iPhone status bar or home indicator. The installed build uses `viewport-fit=cover`, `black-translucent`, and native safe-area environment values; it no longer duplicates that OS chrome inside the app.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: system/SF Pro-style fallbacks, optical weights, tight date tracking, small tabular time labels, and truncation all follow the approved visual treatment. No generic futuristic or AI-style display type is present.
-- Spacing and layout rhythm: paired-device header, month/week panel, date overview, full-day calendar, and bottom dock follow the approved layout. All persistent controls are visible at the target viewport and the four reminder blocks clear the dock.
-- Colors and visual tokens: true black base, icy cyan labels, low-saturation sky/violet/mint/coral events, thin cool glass borders, and restrained elevation match the references.
-- Image quality and asset fidelity: the supplied HOVER watercolor icon is used unchanged and remains sharp. The sparse OLED star field is a dedicated raster asset; no placeholder artwork, emoji, handcrafted SVG, or CSS-drawn decorative substitute is used. Standard controls use Radix icons.
-- Copy and content: desktop name, dates, times, summaries, onboarding copy, reminder titles, recovery language, and notification pre-prompt are coherent and production-oriented.
-- Accessibility and interaction: semantic buttons and headings, labels, focus states, reduced-motion handling, large touch targets, readable contrast, and live completion feedback are present.
+- Fonts and typography: the SF Pro / Segoe Variable system stack, optical weights, tight display tracking, tabular time labels, and short uppercase labels are unchanged. Headings, button labels, and dense calendar text remain legible at 393px.
+- Spacing and layout rhythm: the paired-desktop header, week rail, date summary, full-day calendar, isolated bottom sheet, completion map, and bottom dock match the verified planner. Production phone content is edge-to-edge and safe-area aware; the fake device stage contributes no extra white canvas, bezel, or scaling.
+- Colors and visual tokens: OLED black, cool glass borders, cyan metadata, low-saturation event colors, and the exact completion token `#541804` are unchanged. The new touch icon uses OLED black outside the circular art rather than the white transparency flattening visible on iOS.
+- Image quality and asset fidelity: the real HOVER watercolor icon remains the source for in-app, manifest, maskable, and Apple touch assets. New icon sizes are precomposed from that source without generated replacement artwork, halos, or white borders. The starfield remains a dedicated raster asset.
+- Copy and content: onboarding, pairing, recovery, notification, reminder, and history copy remains coherent. `TODAY`, the selected heading, seed reminders, and the current-time line now resolve from the phone's current local date/time instead of the old fixed August 15 test date.
+- Icons: existing Radix controls retain consistent stroke weight and alignment. The production runtime removes the preview-only device picker and custom circular touch cursor rather than restyling them.
+- Responsiveness and behavior: phone and installed launches choose the native shell from standalone mode, mobile user agent, or coarse-touch tablet input. Native scrolling uses platform momentum and `touch-action: pan-y`; desktop preview continues to use the deterministic simulator physics.
+- Accessibility: semantic headings, dialogs, labels, live controls, disabled navigation states, reduced-motion behavior, 44px-class tap targets, and readable contrast are preserved. The native shell allows the OS keyboard and focus behavior instead of presenting a decorative simulated keyboard.
 
 ## Full-view comparison evidence
 
-The final combined comparison used both normalized approved references and the `393 × 852` implementation in one visual input. The implementation preserves option 1's month/week/calendar hierarchy and option 3's paired-device treatment, sharp glass, event palette, completion rings, and bottom action dock. The deliberate hybrid explains the two acceptable differences noted above.
+`standalone-comparison.png` places the prior verified `393 × 852` planner and the new `393 × 852` standalone planner in one visual input. App-owned hierarchy, glass surfaces, event blocks, completion controls, and action dock match. The deliberate differences are the removed fake status/home chrome and the real current date.
 
-## Focused region evidence
+The supplied iPhone screenshot was used only as private problem evidence: it showed the entire simulator, device picker, white page canvas, and circular custom cursor inside Safari/Home Screen. None of those preview layers appear in `standalone-onboarding.png` or `standalone-implementation.png`.
 
-A separate crop was not needed after normalization: all three comparison images were rendered at `393px` width, leaving header typography, icon edges, week selection, calendar labels, block borders, completion rings, drag grips, and dock controls clearly readable in the combined input. The new-reminder sheet was also inspected in a live browser state and remained fully separated and readable above the dimmed planner.
+## Focused state evidence
 
-## Comparison history
-
-1. Initial browser pass found a P2 safe-area issue: the bottom planner dock resolved an undefined app-level safe-area variable and appeared at the top. The app shell now defines the inherited device safe area; the dock sits above iOS and Android bottom chrome.
-2. First normalized pass found two P2 layout issues: the first `7 AM` label was clipped and the approved layout's month label was missing. The first label now sits within the calendar edge, and a compact `AUGUST 2026` row with real week navigation was added.
-3. The revised pass slightly reduced the hour scale so the `6:00 PM` event ends above the persistent dock. Post-fix evidence shows the full day, all four reminders, and all persistent actions without overlap.
-4. Final normalized comparison found no actionable P0/P1/P2 issues.
+- `standalone-sheet.png`: the add-reminder editor is a single opaque glass sheet above a dimmed planner, with no overlapping preview keyboard or illegible double-glass layer.
+- `standalone-history.png`: the GitHub-style 12-week grid, month/day labels, `Less`/`More` legend, exact brown activity token, totals, and recent history remain clear.
+- `apple-touch-icon.png`: the circular artwork is sharp and unchanged; the formerly transparent outer pixels are OLED black so iOS no longer flattens them to a white tile.
 
 ## Primary interactions tested
 
-- Next day changes the heading to `Sunday, August 16`, changes the eyebrow to `SUNDAY`, and shows the correct empty-state summary; Today restores `TODAY` and the August 15 schedule.
-- New reminder opens the isolated glass sheet, accepts a title, saves, updates the summary, and renders the new calendar block.
-- Mark complete animates and removes the reminder, then updates the summary.
-- Mark complete now also creates a persistent dated history row, raises the completion/active-day/streak totals, and lights the matching 12-week activity cell with the `#541804` token.
-- The exact top-left HOVER icon opens the member profile; Planner returns to the calendar and Edit opens the username identity screen.
-- Username input normalizes to the cloud-safe lowercase handle `@abdulla_hover`, persists locally, and reappears in the profile.
-- Previous-day and previous-week controls are disabled at the earliest available reminder/history date; earlier week chips remain visible but unavailable and accurately announce that no earlier history exists.
-- A top-edge pull gesture reveals the original HOVER icon as a centered spinning planet in the overscroll gap; it clears the paired-device header and retracts when the rubber-band returns.
-- Pair with desktop accepts a six-character code, proceeds through the notification pre-prompt, dismisses the simulated keyboard before navigation, and lands on the paired planner.
-- iPhone screen verified at `393 × 852`; Pixel 10 verified at `427 × 952` with its protected Android bottom chrome and no overlaps. The planner, profile grid, recent history, and pull-down planet were checked on the live runtime.
-- Clean final browser tab reported no console warnings or errors.
-- `manifest.webmanifest` and `sw.js` both returned HTTP 200 from the local preview.
-- `npm run check:runtime`, production build, and all four Sites worker tests passed.
-
-## Follow-up polish
-
-- Consider a later native-only haptic profile for long-press dragging once the PWA is wrapped for iOS/Android stores.
+- Phone runtime fills exactly `393 × 852` and contains no phone bezel, device picker, custom cursor, simulated status bar, simulated home indicator, or simulated keyboard.
+- Desktop QA runtime retains the framed iPhone / Pixel picker and cursor for visual testing.
+- New reminder opens, accepts a title through the native input, saves, closes the sheet, and renders the new calendar block.
+- Mark complete removes the active block and records it in profile history and the activity grid.
+- The actual current local date appears beneath `TODAY`; backward navigation remains bounded by available reminder/history data.
+- Pair-session responses keep their existing cloud session but rewrite the QR destination to `https://hover-reminder.pages.dev/`.
+- The Pages proxy applies no-store API behavior and security headers to the app shell.
+- Browser console: no warnings or errors in planner, editor, onboarding, or profile states.
+- Automated gates: 9 worker/backend tests and 10 runtime/interaction tests pass.
 
 final result: passed

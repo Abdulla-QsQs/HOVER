@@ -105,7 +105,8 @@ type BarcodeDetectorInstance = {
 };
 type BarcodeDetectorConstructor = new (options: { formats: string[] }) => BarcodeDetectorInstance;
 
-const BASE_DATE = new Date(2026, 7, 15);
+const BASE_DATE = startOfLocalDay(new Date());
+const BASE_DATE_KEY = dateKey(BASE_DATE);
 const START_HOUR = 7;
 const END_HOUR = 20;
 const HOUR_HEIGHT = 31.5;
@@ -118,7 +119,7 @@ const initialReminders: Reminder[] = [
     title: "Morning focus",
     start: "08:15",
     end: "09:15",
-    dateKey: "2026-08-15",
+    dateKey: BASE_DATE_KEY,
     color: "sky",
     top: topForTime("08:15"),
     height: heightForTimes("08:15", "09:15"),
@@ -129,7 +130,7 @@ const initialReminders: Reminder[] = [
     title: "Plan the launch",
     start: "10:30",
     end: "11:45",
-    dateKey: "2026-08-15",
+    dateKey: BASE_DATE_KEY,
     color: "violet",
     top: topForTime("10:30"),
     height: heightForTimes("10:30", "11:45"),
@@ -140,7 +141,7 @@ const initialReminders: Reminder[] = [
     title: "Review mobile pairing",
     start: "14:00",
     end: "14:45",
-    dateKey: "2026-08-15",
+    dateKey: BASE_DATE_KEY,
     color: "mint",
     top: topForTime("14:00"),
     height: heightForTimes("14:00", "14:45"),
@@ -151,7 +152,7 @@ const initialReminders: Reminder[] = [
     title: "Evening walk",
     start: "18:00",
     end: "18:30",
-    dateKey: "2026-08-15",
+    dateKey: BASE_DATE_KEY,
     color: "coral",
     top: topForTime("18:00"),
     height: heightForTimes("18:00", "18:30"),
@@ -217,13 +218,19 @@ export default function Prototype() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(() => isStandaloneApp());
   const [draft, setDraft] = useState<ReminderDraft>(() => emptyDraft(dateKey(BASE_DATE)));
+  const [now, setNow] = useState(() => new Date());
 
   const selectedDate = useMemo(() => addDays(BASE_DATE, selectedOffset), [selectedOffset]);
   const selectedDateKey = dateKey(selectedDate);
   const selectedReminders = reminders
     .filter((reminder) => reminder.dateKey === selectedDateKey)
     .sort((a, b) => a.top - b.top);
-  const nextReminder = selectedReminders[0];
+  const currentTimeKey = timeKey(now);
+  const nextReminder = selectedOffset === 0
+    ? selectedReminders.find((reminder) => reminder.start >= currentTimeKey)
+    : selectedReminders[0];
+  const currentHour = now.getHours();
+  const showNowLine = selectedOffset === 0 && currentHour >= START_HOUR && currentHour <= END_HOUR;
   const week = useMemo(() => weekFor(selectedDate), [selectedDate]);
   const earliestDateKey = useMemo(() => {
     const datedItems = [...history.map((item) => item.dateKey), ...reminders.map((item) => item.dateKey)];
@@ -236,6 +243,11 @@ export default function Prototype() {
     const timer = window.setTimeout(() => setPhase("welcome"), 1850);
     return () => window.clearTimeout(timer);
   }, [phase]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("hover-reminders", JSON.stringify(reminders));
@@ -904,7 +916,7 @@ export default function Prototype() {
                 <div>
                   <p className="date-eyebrow">{selectedOffset === 0 ? "TODAY" : weekdayLong(selectedDate).toUpperCase()}</p>
                   <h1>{weekdayLong(selectedDate)}, {monthLong(selectedDate)} {selectedDate.getDate()}</h1>
-                  <p>{summaryFor(selectedReminders)}</p>
+                  <p>{summaryFor(selectedReminders, nextReminder)}</p>
                 </div>
                 <button className="add-orb" onClick={openNewReminder} aria-label="Add reminder">
                   <PlusIcon />
@@ -930,9 +942,9 @@ export default function Prototype() {
                     </div>
                   ))}
 
-                  {selectedOffset === 0 ? (
-                    <div className="now-line" style={{ top: topForTime("08:05") }} aria-label="Current time 8:05 AM">
-                      <span>8:05 AM</span>
+                  {showNowLine ? (
+                    <div className="now-line" style={{ top: topForTime(currentTimeKey) }} aria-label={`Current time ${formatTime(currentTimeKey)}`}>
+                      <span>{formatTime(currentTimeKey)}</span>
                     </div>
                   ) : null}
 
@@ -1435,13 +1447,18 @@ function ProfileScreen({
 function loadReminders() {
   try {
     const saved = window.localStorage.getItem("hover-reminders");
-    return saved
-      ? (JSON.parse(saved) as Reminder[]).map((reminder) => ({
-          ...reminder,
-          top: topForTime(reminder.start),
-          height: heightForTimes(reminder.start, reminder.end),
-        }))
-      : initialReminders;
+    if (!saved) return initialReminders;
+    const parsed = JSON.parse(saved) as Reminder[];
+    const demoIds = new Set(initialReminders.map((reminder) => reminder.id));
+    const isLegacyDemo = parsed.length === initialReminders.length && parsed.every(
+      (reminder) => demoIds.has(reminder.id) && reminder.dateKey === "2026-08-15",
+    );
+    return parsed.map((reminder) => ({
+      ...reminder,
+      dateKey: isLegacyDemo ? BASE_DATE_KEY : reminder.dateKey,
+      top: topForTime(reminder.start),
+      height: heightForTimes(reminder.start, reminder.end),
+    }));
   } catch {
     return initialReminders;
   }
@@ -1684,6 +1701,14 @@ function dateFromKey(value: string) {
   return new Date(year, month - 1, day);
 }
 
+function startOfLocalDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function timeKey(value: Date) {
+  return `${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}`;
+}
+
 function buildActivityWeeks(history: CompletedReminder[]) {
   const completionCounts = history.reduce<Record<string, number>>((counts, item) => {
     counts[item.dateKey] = (counts[item.dateKey] || 0) + 1;
@@ -1804,10 +1829,12 @@ function addMinutesToTime(value: string, minutesToAdd: number) {
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
-function summaryFor(reminders: Reminder[]) {
+function summaryFor(reminders: Reminder[], nextReminder?: Reminder) {
   if (reminders.length === 0) return "Nothing planned yet";
   const noun = reminders.length === 1 ? "reminder" : "reminders";
-  return `${reminders.length} ${noun} · next at ${formatTime(reminders[0].start)}`;
+  return nextReminder
+    ? `${reminders.length} ${noun} · next at ${formatTime(nextReminder.start)}`
+    : `${reminders.length} ${noun} · day complete`;
 }
 
 function clamp(value: number, min: number, max: number) {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.1 - Standalone mobile runtime
+
+- Moved the public Home Screen install link to `https://hover-reminder.pages.dev/`.
+- Replaced the shipped phone simulator shell with an edge-to-edge production runtime using the real OS status bar, keyboard, scrolling, touch behavior, and safe areas.
+- Removed the preview-only device picker, fake bezel, simulated keyboard, and circular custom cursor from phone and Home Screen launches.
+- Corrected `TODAY`, the selected date, current-time line, and demo reminders to use the phone's real local date and time.
+- Added OLED-black Apple and maskable icons to prevent iOS from flattening transparent pixels into a white tile.
+- Preserved existing pairing tokens and cloud data through the neutral HOVER compatibility endpoint.
+
 ## 1.0.1 - Security update
 
 - Upgraded Electron from 37.10.3 to 43.4.0 to resolve high-severity upstream advisories.
